@@ -430,6 +430,7 @@ function HomeContent() {
   const flyTotalPauseMs = useRef(0);
   const [flyElapsedSec, setFlyElapsedSec] = useState(0);
   const [stats, setStats] = useState<CityStats>({ total_developers: 0, total_contributions: 0 });
+  const [githubStars, setGithubStars] = useState<number>(0);
   const [milestoneCelebrations, setMilestoneCelebrations] = useState<{ milestone: number; reached_at: string }[]>([]);
   const [focusedBuilding, setFocusedBuilding] = useState<string | null>(null);
   const [shareData, setShareData] = useState<{
@@ -519,16 +520,24 @@ function HomeContent() {
   const prevRaidPhaseRef = useRef<string>("idle");
   const lastSuccessfulRaidRef = useRef<{ defenderLogin: string; attackerLogin: string; tagStyle: string } | null>(null);
 
-  // Fetch LeetCode star count + Discord member count
+  // Fetch GitHub star count + Discord member count — refresh every 5 minutes
   useEffect(() => {
-    fetch("https://api.github.com/repos/Ixotic27/The-Leetcode-City")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.stargazers_count != null) setStarCount(d.stargazers_count); })
-      .catch(() => { });
-    fetch("https://discord.com/api/v9/invites/tTq4wjfG?with_counts=true")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.approximate_member_count != null) setDiscordMembers(d.approximate_member_count); })
-      .catch(() => { });
+    const fetchStars = () => {
+      fetch("https://api.github.com/repos/Ixotic27/The-Leetcode-City")
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d?.stargazers_count != null) setGithubStars(d.stargazers_count); })
+        .catch(() => {});
+    };
+    const fetchDiscord = () => {
+      fetch("https://discord.com/api/v9/invites/tTq4wjfG?with_counts=true")
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d?.approximate_member_count != null) setDiscordMembers(d.approximate_member_count); })
+        .catch(() => {});
+    };
+    fetchStars();
+    fetchDiscord();
+    const interval = setInterval(fetchStars, 5 * 60 * 1000); // re-fetch every 5 minutes
+    return () => clearInterval(interval);
   }, []);
 
   // Track successful raid data before state resets
@@ -2769,7 +2778,7 @@ function HomeContent() {
                 // ── LeetCode Stars mode ──
                 (() => {
                   const target = 100;
-                  const current = stats.total_stars ?? 0;
+                  const current = githubStars;
                   const pct = Math.min(100, (current / target) * 100);
                   const isDone = current >= target;
 
