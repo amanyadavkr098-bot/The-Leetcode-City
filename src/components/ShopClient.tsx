@@ -1077,6 +1077,41 @@ export default function ShopClient({
     [githubLogin]
   );
 
+  // ─── Redeem Code Handler ───────────────────────────────────
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeemState, setRedeemState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [redeemMsg, setRedeemMsg] = useState("");
+
+  const handleRedeem = async () => {
+    const trimmed = redeemCode.trim().toUpperCase();
+    if (!trimmed) return;
+    setRedeemState("loading");
+    setRedeemMsg("");
+    try {
+      const res = await fetch("/api/shop/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: trimmed }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOwned((prev) => prev.includes(data.item_id) ? prev : [...prev, data.item_id]);
+        setRedeemState("success");
+        setRedeemMsg(data.message ?? `🎉 ${data.item_name} added to your inventory!`);
+        setRedeemCode("");
+        setTimeout(() => setRedeemState("idle"), 5000);
+      } else {
+        setRedeemState("error");
+        setRedeemMsg(data.error ?? "Invalid or expired code.");
+        setTimeout(() => setRedeemState("idle"), 4000);
+      }
+    } catch {
+      setRedeemState("error");
+      setRedeemMsg("Network error. Please try again.");
+      setTimeout(() => setRedeemState("idle"), 4000);
+    }
+  };
+
   const handlePixCompleted = useCallback(
     (_purchaseId: string) => {
       if (pixModal) {
@@ -1227,6 +1262,36 @@ export default function ShopClient({
             {points.toLocaleString()} [P]
           </span>
         </div>
+      </div>
+
+      {/* ─── Redeem a Code ─────────────────────────────────── */}
+      <div className="mb-5 border-[2px] border-border bg-bg-raised p-4">
+        <p className="mb-3 text-[9px] uppercase tracking-widest" style={{ color: ACCENT }}>🎟 Redeem a Code</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="CITY-ITEM-XXXX"
+            value={redeemCode}
+            onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && redeemState === "idle" && handleRedeem()}
+            maxLength={30}
+            className="flex-1 border-[2px] border-border bg-bg px-3 py-2 text-[11px] text-cream placeholder:text-muted/50 uppercase tracking-wider focus:border-border-light focus:outline-none"
+            disabled={redeemState === "loading"}
+          />
+          <button
+            onClick={handleRedeem}
+            disabled={!redeemCode.trim() || redeemState === "loading"}
+            className="btn-press px-4 py-2 text-[10px] text-bg disabled:opacity-40"
+            style={{ backgroundColor: redeemState === "success" ? "#39d353" : ACCENT, boxShadow: `2px 2px 0 0 ${SHADOW}` }}
+          >
+            {redeemState === "loading" ? "..." : redeemState === "success" ? "✓" : "Redeem"}
+          </button>
+        </div>
+        {redeemMsg && (
+          <p className={`mt-2 text-[9px] normal-case ${redeemState === "success" ? "text-green-400" : "text-red-400"}`}>
+            {redeemMsg}
+          </p>
+        )}
       </div>
 
       {/* Tab navigation */}
