@@ -142,7 +142,7 @@ jobs:
               }
               
               if (findings.length > 0) {
-                const body = `🔍 **Basic Security Scan: Review Needed**\n\nThe following patterns were detected in the PR diff and require manual review:\n\n${findings.join('\n')}\n\n> This is an automated scan. A maintainer should review these findings before merging.`;
+                const body = `🔍 **Basic Security Scan: Review Needed**\n\nThe following patterns were detected in the PR diff and require manual review:\n\n${findings.join('\n')}\n\n> This is an automated scan. A maintainer should review these findings before merging.\n\nHey @${prUser}, please review these flagged items and update your PR if necessary! 🛠️`;
                 
                 await github.rest.pulls.createReview({
                   owner: context.repo.owner,
@@ -219,10 +219,14 @@ jobs:
             }
             
             // Clean the reply text
-            const cleanReply = reply
+            let cleanReply = reply
               .replace(/STATE: APPROVED/g, '✅ **AI Review: Approved**\n')
               .replace(/STATE: CHANGES_REQUESTED/g, '❌ **AI Review: Changes Requested**\n')
               .replace(/STATE: COMMENT/g, '💬 **AI Review: Comment**\n');
+            
+            if (reviewEvent === 'REQUEST_CHANGES') {
+              cleanReply += `\n\nHey @${prUser}, please review the suggestions above and update your PR! 🛠️`;
+            }
             
             console.log("Submitting review...");
             await github.rest.pulls.createReview({
