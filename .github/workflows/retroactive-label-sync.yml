@@ -57,7 +57,7 @@ jobs:
               'needs-rebase':     { color: 'e11d48', description: 'This PR has merge conflicts and needs a rebase.' },
               'needs-details':    { color: 'f97316', description: 'This PR is missing required description details.' },
               'inactive':         { color: '6b7280', description: 'This PR was closed due to inactivity.' },
-              'possible-duplicate': { color: 'fbca04', description: 'This issue may be a duplicate.' },
+
               'Gssoc 26':         { color: '0e8a16', description: 'GSSoC 2026 program' },
             };
 
