@@ -38,6 +38,25 @@ jobs:
                   issue_number: issue.number,
                   body: `✅ **Admin Approved!**\n\nThis issue has been reviewed and approved by the project maintainers. It is now open for contribution! 🎉\n\nTo claim this issue, simply comment \`assign me\` along with your \`### Proposed Solution\`.`
                 });
+
+                // Auto-add required labels upon approval
+                const currentLabels = issue.labels.map(l => l.name);
+                const labelsToAdd = [];
+                if (!currentLabels.includes('Gssoc 26')) labelsToAdd.push('Gssoc 26');
+                if (!currentLabels.includes('gssoc:approved')) labelsToAdd.push('gssoc:approved');
+                if (!currentLabels.includes('good first issue')) labelsToAdd.push('good first issue');
+                
+                const hasDifficulty = currentLabels.some(l => l.startsWith('level:'));
+                if (!hasDifficulty) labelsToAdd.push('level:beginner');
+
+                if (labelsToAdd.length > 0) {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: labelsToAdd
+                  });
+                }
               }
               return;
             }
