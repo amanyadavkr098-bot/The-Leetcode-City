@@ -11,8 +11,8 @@ const repo = 'Ixotic27/The-Leetcode-City';
 
 // Required labels that MUST be on every open issue/PR
 const REQUIRED_GSSOC_LABELS = ['Gssoc 26', 'gssoc:approved'];
-const DIFFICULTY_LABELS = ['beginner', 'intermediate', 'advanced', 'level:beginner', 'level:intermediate', 'level:advanced', 'level:critical'];
-const DEFAULT_DIFFICULTY = 'beginner';
+const DIFFICULTY_LABELS = ['level:beginner', 'level:intermediate', 'level:advanced', 'level:critical'];
+const DEFAULT_DIFFICULTY = 'level:beginner';
 const GOOD_FIRST_ISSUE = 'good first issue';
 
 async function ensureLabelExists(name: string, color: string, description: string) {

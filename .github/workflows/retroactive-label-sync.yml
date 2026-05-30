@@ -42,8 +42,6 @@ jobs:
               'level:intermediate': { color: '3b82f6', description: 'Intermediate difficulty level' },
               'level:advanced':     { color: 'f97316', description: 'Advanced difficulty level' },
               'level:critical':     { color: '6b7280', description: 'Critical difficulty level' },
-              'quality:clean':       { color: '22c55e', description: 'Clean, well-written code' },
-              'quality:exceptional': { color: '8b5cf6', description: 'Exceptional quality contribution' },
               'type:bug':         { color: 'ef4444', description: "Something isn't working as expected" },
               'type:feature':     { color: '10b981', description: 'New features, additions, or enhancements' },
               'type:docs':        { color: '3b82f6', description: 'Documentation changes or README updates' },
