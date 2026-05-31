@@ -9,7 +9,6 @@ import CityScene from "./CityScene";
 import type { FocusInfo } from "./CityScene";
 import type { LiveSession } from "@/lib/useCodingPresence";
 import type { CityBuilding, CityPlaza, CityDecoration, CityRiver, CityBridge } from "@/lib/github";
-import { seededRandom } from "@/lib/github";
 import SkyAds from "./SkyAds";
 import BuildingAds from "./BuildingAds";
 import type { SkyAd } from "@/lib/skyAds";
@@ -1112,6 +1111,74 @@ function Ground({ color, grid1, grid2 }: { color: string; grid1: string; grid2: 
   );
 }
 
+function CircularCityPlatform({ radius, color }: { radius: number; color: string }) {
+  const supportColumns = useMemo(() => {
+    const columns: [number, number][] = [];
+    const count = 18;
+    const columnRadius = Math.max(180, radius * 0.78);
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      columns.push([
+        Math.cos(angle) * columnRadius,
+        Math.sin(angle) * columnRadius,
+      ]);
+    }
+    return columns;
+  }, [radius]);
+
+  const platformRadius = radius + 120;
+
+  return (
+    <group>
+      <mesh position={[0, -14, 0]}>
+        <cylinderGeometry args={[platformRadius, platformRadius + 44, 28, 128]} />
+        <meshStandardMaterial
+          color="#263442"
+          emissive="#101924"
+          emissiveIntensity={0.28}
+          roughness={0.92}
+          metalness={0.05}
+        />
+      </mesh>
+      <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[platformRadius, 128]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.18}
+          roughness={0.9}
+        />
+      </mesh>
+      {[0.48, 0.68, 0.86, 1].map((scale) => (
+        <mesh
+          key={scale}
+          position={[0, 0.9 + scale, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <torusGeometry args={[platformRadius * scale, 2.4, 8, 160]} />
+          <meshStandardMaterial
+            color="#5a7186"
+            emissive="#263849"
+            emissiveIntensity={0.35}
+            roughness={0.82}
+          />
+        </mesh>
+      ))}
+      {supportColumns.map(([x, z], i) => (
+        <mesh key={i} position={[x, -48, z]}>
+          <cylinderGeometry args={[9, 15, 80, 10]} />
+          <meshStandardMaterial
+            color="#1b2530"
+            emissive="#0f1720"
+            emissiveIntensity={0.25}
+            roughness={0.95}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // ─── Tree ─────────────────────────────────────────────────────
 
 function Tree3D({ position, variant }: { position: [number, number, number]; variant: number }) {
@@ -2055,6 +2122,7 @@ export default function CityCanvas({ buildings, plazas, decorations, river, brid
       )}
 
       <Ground key={`ground-${themeIndex}`} color={t.groundColor} grid1={t.grid1} grid2={t.grid2} />
+      <CircularCityPlatform radius={cityRadius} color={t.groundColor} />
 
       <FounderSpire onClick={onLandmarkClick ?? (() => { })} />
 

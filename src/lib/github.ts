@@ -320,6 +320,165 @@ export interface DistrictZone {
 
 const RIVER_WIDTH = 40;
 
+const CIRCULAR_CENTER_CLEARANCE = 170;
+const CIRCULAR_RING_SPACING = 72;
+const CIRCULAR_MIN_ARC_SPACING = 54;
+const CIRCULAR_EDGE_PADDING = 180;
+const CIRCULAR_MAX_JITTER = 0.18;
+
+export interface CircularCityPosition {
+  x: number;
+  z: number;
+  radius: number;
+  angle: number;
+  ring: number;
+  scale: number;
+}
+
+function circularRingCapacity(ring: number): number {
+  const radius = CIRCULAR_CENTER_CLEARANCE + ring * CIRCULAR_RING_SPACING;
+  const circumference = Math.max(1, Math.PI * 2 * radius);
+  return Math.max(8, Math.floor(circumference / CIRCULAR_MIN_ARC_SPACING));
+}
+
+export function getCircularCityRadius(buildingCount: number): number {
+  if (buildingCount <= 0) return CIRCULAR_CENTER_CLEARANCE + CIRCULAR_EDGE_PADDING;
+
+  let remaining = buildingCount;
+  let ring = 0;
+  while (remaining > circularRingCapacity(ring)) {
+    remaining -= circularRingCapacity(ring);
+    ring++;
+  }
+
+  return CIRCULAR_CENTER_CLEARANCE +
+    ring * CIRCULAR_RING_SPACING +
+    CIRCULAR_EDGE_PADDING;
+}
+
+export function getCircularCityPosition(
+  index: number,
+  buildingCount: number,
+  seedKey = "",
+): CircularCityPosition {
+  let ring = 0;
+  let slot = Math.max(0, index);
+  let capacity = circularRingCapacity(ring);
+
+  while (slot >= capacity) {
+    slot -= capacity;
+    ring++;
+    capacity = circularRingCapacity(ring);
+  }
+
+  const seed = hashStr(`${seedKey}:${index}:${ring}`);
+  const step = (Math.PI * 2) / capacity;
+  const ringOffset = seededRandom(ring * 4099 + 17) * Math.PI * 2;
+  const angleJitter = (seededRandom(seed + 11) - 0.5) * step * CIRCULAR_MAX_JITTER;
+  const radiusJitter = (seededRandom(seed + 29) - 0.5) *
+    CIRCULAR_RING_SPACING *
+    CIRCULAR_MAX_JITTER;
+  const radius = CIRCULAR_CENTER_CLEARANCE +
+    ring * CIRCULAR_RING_SPACING +
+    radiusJitter;
+  const angle = slot * step + ringOffset + angleJitter;
+  const expansionScale = Math.min(1, buildingCount / Math.max(1, capacity));
+  const outerScale = Math.max(0.72, 1 - ring * 0.025);
+  const scale = outerScale * (0.96 + expansionScale * 0.04);
+
+  return {
+    x: Math.cos(angle) * radius,
+    z: Math.sin(angle) * radius,
+    radius,
+    angle,
+    ring,
+    scale,
+  };
+}
+
+function applyCircularCityLayout(buildings: CityBuilding[]): number {
+  const cityRadius = getCircularCityRadius(buildings.length);
+
+  for (let i = 0; i < buildings.length; i++) {
+    const building = buildings[i];
+    const slot = getCircularCityPosition(i, buildings.length, building.login);
+    building.position = [Math.round(slot.x), 0, Math.round(slot.z)];
+    building.width = Math.max(10, Math.round(building.width * slot.scale));
+    building.depth = Math.max(9, Math.round(building.depth * slot.scale));
+    building.height = Math.max(
+      MIN_BUILDING_HEIGHT,
+      Math.round(building.height * (0.94 + slot.scale * 0.06)),
+    );
+  }
+
+  return cityRadius;
+}
+
+function rebuildCircularCityDecorations(
+  plazas: CityPlaza[],
+  decorations: CityDecoration[],
+  cityRadius: number,
+) {
+  plazas.length = 0;
+  decorations.length = 0;
+
+  plazas.push({
+    position: [0, 0, 0],
+    size: CIRCULAR_CENTER_CLEARANCE * 0.9,
+    variant: 0.5,
+  });
+  decorations.push({ type: 'fountain', position: [0, 0, 0], rotation: 0, variant: 0 });
+
+  const ringCount = Math.max(
+    2,
+    Math.ceil((cityRadius - CIRCULAR_EDGE_PADDING) / CIRCULAR_RING_SPACING),
+  );
+
+  for (let ring = 1; ring <= ringCount; ring++) {
+    const radius = CIRCULAR_CENTER_CLEARANCE + ring * CIRCULAR_RING_SPACING;
+    const plazaCount = ring === 1 ? 4 : 6;
+    for (let i = 0; i < plazaCount; i++) {
+      const angle = (i / plazaCount) * Math.PI * 2 + ring * 0.31;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      plazas.push({
+        position: [Math.round(x), 0, Math.round(z)],
+        size: Math.max(48, 78 - ring * 3),
+        variant: seededRandom(ring * 1009 + i),
+      });
+    }
+
+    const markerCount = Math.max(12, Math.floor((Math.PI * 2 * radius) / 120));
+    for (let i = 0; i < markerCount; i++) {
+      const angle = (i / markerCount) * Math.PI * 2 + ring * 0.19;
+      const baseX = Math.cos(angle) * radius;
+      const baseZ = Math.sin(angle) * radius;
+      const tangent = angle + Math.PI / 2;
+      const variant = Math.floor(seededRandom(ring * 7919 + i) * 3);
+
+      decorations.push({
+        type: i % 3 === 0 ? 'streetLamp' : 'tree',
+        position: [Math.round(baseX), 0, Math.round(baseZ)],
+        rotation: tangent,
+        variant,
+      });
+
+      if (i % 5 === 0) {
+        decorations.push({
+          type: 'bench',
+          position: [
+            Math.round(Math.cos(angle) * (radius - 18)),
+            0,
+            Math.round(Math.sin(angle) * (radius - 18)),
+          ],
+          rotation: tangent,
+          variant: 0,
+        });
+      }
+    }
+  }
+}
+
 function precomputeComposites(
   devs: DeveloperRecord[],
   maxContrib: number,
@@ -776,6 +935,9 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     }
   }
 
+  const cityPlatformRadius = applyCircularCityLayout(buildings);
+  rebuildCircularCityDecorations(plazas, decorations, cityPlatformRadius);
+
   // ── District zones (computed from actual building positions) ──
   const dzMap: Record<string, CityBuilding[]> = {};
   for (const b of buildings) {
@@ -801,7 +963,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
   }
 
   // ── River ──
-  const riverCenterZ = RIVER_Z_THRESHOLD + RIVER_PUSH / 2 + STREET_W / 2;
+  const riverCenterZ = cityPlatformRadius + RIVER_WIDTH;
   let bMinX = 0, bMaxX = 0;
   for (const b of buildings) {
     if (b.position[0] < bMinX) bMinX = b.position[0];
