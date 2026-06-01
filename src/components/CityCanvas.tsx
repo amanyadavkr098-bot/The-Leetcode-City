@@ -18,6 +18,7 @@ import FounderSpire from "./FounderSpire";
 import WhiteRabbit from "./WhiteRabbit";
 import CelebrationEffect from "./CelebrationEffect";
 import WallpaperParallax from "./WallpaperParallax";
+import InfiniteWater from "./InfiniteWater";
 
 // ─── Theme Definitions ───────────────────────────────────────
 
@@ -2115,6 +2116,7 @@ export default function CityCanvas({ buildings, plazas, decorations, river, brid
         </>
       )}
 
+      <InfiniteWater waterColor={t.waterColor} waterEmissive={t.waterEmissive} />
       <Ground key={`ground-${themeIndex}`} color={t.groundColor} grid1={t.grid1} grid2={t.grid2} />
       <CircularCityPlatform radius={cityRadius} color={t.groundColor} />
 
