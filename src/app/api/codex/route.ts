@@ -29,6 +29,7 @@ export async function GET() {
         unlockedAchievements: [],
         ownedItems: [],
         ownedTitles: [],
+        selectedTitle: null,
         achievements: allAchievements ?? [],
         items: allItems ?? [],
       });
@@ -48,6 +49,7 @@ export async function GET() {
         unlockedAchievements: [],
         ownedItems: [],
         ownedTitles: [],
+        selectedTitle: null,
         achievements: allAchievements ?? [],
         items: allItems ?? [],
       });
@@ -95,6 +97,15 @@ export async function GET() {
       ownedTitles.push("title_creator", "title_lead_dev", "title_sys_op");
     }
 
+    // Fetch selected title customization
+    const { data: customizationData } = await sb
+      .from("developer_customizations")
+      .select("config")
+      .eq("developer_id", dev.id)
+      .eq("item_id", "selected_title")
+      .maybeSingle();
+    const selectedTitle = (customizationData?.config as any)?.slug ?? null;
+
     // User stats normalized mapping
     const stats = {
       easy_solved: dev.easy_solved ?? 0,
@@ -122,6 +133,7 @@ export async function GET() {
       unlockedAchievements,
       ownedItems,
       ownedTitles,
+      selectedTitle,
       achievements: allAchievements ?? [],
       items: allItems ?? [],
     });
