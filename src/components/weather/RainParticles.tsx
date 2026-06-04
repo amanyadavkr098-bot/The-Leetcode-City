@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 export function RainParticles({ dropCount = 15000, speed = 2.0, windX = 0.5 }) {
-  const shaderMaterialRef = useRef<THREE.ShaderMaterial>(null);
+  const shaderMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
 
   const positions = useMemo(() => {
     const pos = new Float32Array(dropCount * 3);

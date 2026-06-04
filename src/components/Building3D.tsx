@@ -619,11 +619,10 @@ export default function Building3D({ building, colors, atlasTexture, introMode, 
     side.offset.set(sideColStart / ATLAS_COLS, bandRowOffset / ATLAS_COLS);
     side.repeat.set(effWindowsD / ATLAS_COLS, effFloors / ATLAS_COLS);
 
-    return { front, side };
+return { front, side };
   }, [building, colors, atlasTexture, isBungalow, W, H, D]);
 
-  useEffect(() => {
-    // Wet surface simulation loop
+  // 1. Move useFrame out here so it sits at the root level of the component!
   useFrame((state, delta) => {
     if (!materials || materials.length === 0) return;
 
@@ -641,6 +640,9 @@ export default function Building3D({ building, colors, atlasTexture, introMode, 
       mat.metalness = THREE.MathUtils.lerp(mat.metalness, targetMetalness, delta * 2);
     });
   });
+
+  // 2. Keep useEffect strictly for cleaning up your canvas textures on unmount
+  useEffect(() => {
     return () => {
       textures.front.dispose();
       textures.side.dispose();
