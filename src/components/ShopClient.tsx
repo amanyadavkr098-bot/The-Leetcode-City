@@ -1779,9 +1779,19 @@ export default function ShopClient({
                                 <p className="text-[9px] text-cream text-center mb-1.5">
                                   {ITEM_NAMES[itemId]}
                                 </p>
-                                <p className="text-[10px] text-center mb-2" style={{ color: ACCENT }}>
-                                  {formatPrice(shopItem)}
-                                </p>
+                                <div className="flex flex-col items-center justify-center mb-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] line-through text-muted opacity-60">
+                                      {formatPrice({ ...shopItem, price_usd_cents: shopItem.price_usd_cents * 10 })}
+                                    </span>
+                                    <span className="text-[12px] font-bold text-[#39d353]">
+                                      {formatPrice(shopItem)}
+                                    </span>
+                                  </div>
+                                  <span className="text-[8px] font-bold bg-[#39d353]/20 text-[#39d353] px-1 py-0.5 rounded mt-0.5">
+                                    90% OFF LAUNCH SALE
+                                  </span>
+                                </div>
                                 <div className="flex flex-col gap-1">
                                   {isDevAccount && devModeEnabled && (
                                     <p className="text-[8px] text-center mb-1 font-bold animate-pulse text-green-400">
