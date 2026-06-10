@@ -275,12 +275,6 @@ export async function POST(req: Request) {
         const name = lcUserStats?.profile?.realName || lcUserStats?.username || leetcode_username;
         const avatar_url = lcUserStats?.profile?.userAvatar || "";
 
-        let hash = 0;
-        for (let i = 0; i < leetcode_username.length; i++) {
-            hash = Math.imul(31, hash) + leetcode_username.charCodeAt(i) | 0;
-        }
-        const github_id = Math.abs(hash);
-
         // Store raw LC rank in `rank` column for display
         // Store `500000 - lcRank` in `public_repos` so building height calculation rewards better rank
         // (lower rank number = better = bigger building, since the height formula rewards higher public_repos)
