@@ -96,15 +96,15 @@ export async function POST(request: Request) {
         const { data: deducted, error: deductError } = await admin
             .rpc("deduct_points_atomic", {
                 p_developer_id: dev.id,
-                p_amount: item.price_points,
+                p_price_points: item.price_points,
             })
-            .select("points")
+            .select("remaining_points")
             .maybeSingle();
 
         if (deductError || !deducted) {
             return NextResponse.json({ error: "Not enough points or a concurrent purchase already deducted your balance. Please try again." }, { status: 409 });
         }
-        deductedPoints = deducted.points;
+        deductedPoints = deducted.remaining_points;
     }
 
     // Fulfill/grant consumable items to developers (updates tables and determines correct status string)

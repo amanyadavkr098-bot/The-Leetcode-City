@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         }
 
         // Check if it is a sky ad purchase (linked to orderId)
-        let { data: ad } = await sb
+        const { data: ad } = await sb
           .from("sky_ads")
           .select("id, plan_id, active")
           .eq("stripe_session_id", orderId)
