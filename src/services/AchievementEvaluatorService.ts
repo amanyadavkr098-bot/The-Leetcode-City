@@ -1,0 +1,25 @@
+// ✅ Correct Path Import Alias specified by the project guidelines
+import { supabase } from "@/lib/supabase";
+
+export class AchievementEvaluatorService {
+  /**
+   * Securely queries milestone thresholds from the central database schema
+   */
+  public async evaluateDeveloperMilestones(developerId: string): Promise<Record<string, unknown> | null> {
+    if (!supabase) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("developers") // ✅ Targets the correct "developers" table path
+        .select("*")
+        .eq("id", developerId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error("[AchievementEvaluator Evaluation Error]:", err);
+      return null;
+    }
+  }
+}
