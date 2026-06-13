@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
     isFirstSolve = claimResult?.[0]?.won_race === true;
 
     if (isFirstSolve) {
-      await sb.rpc("grant_xp", {
+      await sb.rpc("grant_xp_atomic", {
         p_developer_id: dev.id,
         p_source: `arena_${difficulty}`,
         p_amount: grantedXp,
