@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/supabaseClient';
+import { supabase } from '@/supabase';
 
 export class AchievementEvaluatorService {
   /**
@@ -21,4 +21,3 @@ export class AchievementEvaluatorService {
     }
   }
 }
-
