@@ -1222,19 +1222,22 @@ function CircularCityPlatform({ radius, color, weatherMode }: { radius: number; 
           metalness={0.1}
         />
       </mesh>
-      {/* Platform top surface */}
-      <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Platform top surface - with aggressive polygon offset to prevent z-fighting with buildings at y=0 */}
+      <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
         <circleGeometry args={[platformRadius, 128]} />
         <meshStandardMaterial
           color={weatherMode === "snowy" ? "#f8fafc" : color}
           emissive={weatherMode === "snowy" ? "#e2e8f0" : color}
           emissiveIntensity={weatherMode === "snowy" ? 0.05 : 0.18}
           roughness={weatherMode === "snowy" ? 0.98 : 0.9}
+          polygonOffset
+          polygonOffsetFactor={10}
+          polygonOffsetUnits={10}
         />
       </mesh>
       {/* Concrete ring paths (walkways where trees/lamps sit) */}
       {concretePaths.map((r) => (
-        <mesh key={`path-${r}`} position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh key={`path-${r}`} position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
           <ringGeometry args={[r - 16, r + 16, 128]} />
           <meshStandardMaterial
             color={weatherMode === "snowy" ? "#f1f5f9" : "#4a5564"}
@@ -1244,11 +1247,11 @@ function CircularCityPlatform({ radius, color, weatherMode }: { radius: number; 
           />
         </mesh>
       ))}
-      {/* Perimeter decorative torus rings */}
+      {/* Perimeter decorative torus rings - elevated above ground to prevent z-fighting */}
       {[0.48, 0.68, 0.86, 1].map((scale) => (
         <mesh
           key={scale}
-          position={[0, 0.9 + scale, 0]}
+          position={[0, 2 + scale, 0]}
           rotation={[Math.PI / 2, 0, 0]}
         >
           <torusGeometry args={[platformRadius * scale, 2.4, 8, 160]} />

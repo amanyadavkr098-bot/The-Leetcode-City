@@ -112,21 +112,21 @@ export default function FounderSpire({ onClick }: FounderSpireProps) {
   });
 
   return (
-    <group ref={groupRef} position={[0, 0, 0]}>
+    <group ref={groupRef} position={[0, 0.05, 0]}>
       {/* Invisible hitbox for easier clicking */}
       <mesh position={[0, SPIRE_HEIGHT / 2, 0]} visible={false}>
         <cylinderGeometry args={[35, 35, SPIRE_HEIGHT, 8]} />
         <meshBasicMaterial />
       </mesh>
 
-      {/* Base platform */}
-      <mesh position={[0, 2, 0]}>
+      {/* Base platform - offset 0.5 units to prevent z-fighting */}
+      <mesh position={[0, 2.5, 0]}>
         <cylinderGeometry args={[30, 35, 4, 8]} />
         <meshStandardMaterial color="#1a1a1a" roughness={0.3} metalness={0.8} />
       </mesh>
 
       {/* Base ring detail */}
-      <mesh position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 5.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[28, 1.5, 8, 8]} />
         <meshStandardMaterial
           color={LEETCODE_ORANGE}

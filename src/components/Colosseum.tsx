@@ -18,7 +18,7 @@ interface ColosseumProps {
  */
 
 export default function Colosseum({
-  position = [350, 0, -300],
+  position = [350, 0.05, -300],
   onClick,
 }: ColosseumProps) {
   const groupRef = useRef<THREE.Group>(null);
@@ -64,8 +64,9 @@ export default function Colosseum({
   const COL_R = 9;         // column radius
   const ENTABLATURE_H = 22;
   const PEDIMENT_H = 70;
-  const BASE_TOP = STEPS * STEP_H;
-  // Total height ≈ 24 + 280 + 22 + 70 = ~396
+  const GROUND_OFFSET = 0.5; // Subtle offset to prevent z-fighting
+  const BASE_TOP = STEPS * STEP_H + GROUND_OFFSET;
+  // Total height ≈ 24.5 + 280 + 22 + 70 = ~396.5
 
   const FRONT_COLS = 6;
   const SIDE_COLS = 4;
@@ -116,7 +117,7 @@ export default function Colosseum({
       {Array.from({ length: STEPS }).map((_, i) => {
         const stepW = W + (STEPS - i) * 22;
         const stepD = D + (STEPS - i) * 16;
-        const y = i * STEP_H + STEP_H / 2;
+        const y = i * STEP_H + STEP_H / 2 + GROUND_OFFSET;
         return (
           <group key={`step-${i}`}>
             <mesh position={[0, y, 0]} castShadow receiveShadow>
