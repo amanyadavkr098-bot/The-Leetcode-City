@@ -241,20 +241,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Check for existing pending purchase (prevent double-click)
-  const { data: pendingPurchase } = await sb
-    .from("purchases")
-    .select("id")
-    .eq("developer_id", dev.id)
-    .eq("item_id", item_id)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  if (pendingPurchase) {
-    // Delete stale pending purchase to allow retry
-    await sb.from("purchases").delete().eq("id", pendingPurchase.id);
-  }
-
   // DEV BYPASS: Allow Ishant_27 / ixotic / ixotic27 to get items for free for testing
   const isDev = ["ishant_27", "ixotic", "ixotic27"].includes(githubLogin.toLowerCase()) && body.dev_mode === true;
 
@@ -304,10 +290,13 @@ export async function POST(request: Request) {
         .single();
 
       if (purchaseError) {
+        if (purchaseError.code === "23505") {
+          return NextResponse.json({ error: "A pending purchase already exists for this item" }, { status: 409 });
+        }
         return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
       }
 
-      const { url } = await createCheckoutSession(item_id, dev.id, githubLogin, stripeCurrency, user.email, giftedToDevId, gifted_to_login);
+      const { url } = await createCheckoutSession(item_id, dev.id, githubLogin, stripeCurrency, user.email, giftedToDevId, gifted_to_login, purchase.id);
       return NextResponse.json({ url, purchase_id: purchase.id });
     } else if (provider === "nowpayments") {
       // Crypto via NOWPayments
@@ -326,6 +315,9 @@ export async function POST(request: Request) {
         .single();
 
       if (purchaseError) {
+        if (purchaseError.code === "23505") {
+          return NextResponse.json({ error: "A pending purchase already exists for this item" }, { status: 409 });
+        }
         return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
       }
 
@@ -363,6 +355,9 @@ export async function POST(request: Request) {
         .single();
 
       if (purchaseError) {
+        if (purchaseError.code === "23505") {
+          return NextResponse.json({ error: "A pending purchase already exists for this item" }, { status: 409 });
+        }
         return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
       }
 
@@ -394,6 +389,9 @@ export async function POST(request: Request) {
         .single();
 
       if (purchaseError) {
+        if (purchaseError.code === "23505") {
+          return NextResponse.json({ error: "A pending purchase already exists for this item" }, { status: 409 });
+        }
         return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
       }
 
