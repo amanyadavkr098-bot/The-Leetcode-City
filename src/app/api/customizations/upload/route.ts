@@ -10,9 +10,15 @@ const ALLOWED_TYPES = new Set([
   "image/gif",
 ]);
 
+const MAGIC_BYTES_TO_READ = 12;
+
 function detectMimeFromBytes(bytes: Uint8Array): string | null {
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+  if (bytes.length < MAGIC_BYTES_TO_READ) return null;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A (full 8-byte signature)
+  if (
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+    bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+  ) {
     return "image/png";
   }
   // JPEG: FF D8 FF
@@ -136,25 +142,26 @@ export async function POST(request: Request) {
   }
 
   // Upload file (overwrite on re-upload)
-  const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
-  const filePath = `${dev.id}_${slotIndex}.${ext}`;
   const fileBuffer = await file.arrayBuffer();
 
-  // Validate actual file content against magic bytes to prevent MIME spoofing.
-  // file.type comes from the client-controlled Content-Type header and cannot
-  // be trusted on its own — this check ensures the bytes match the declared type.
-  const detectedType = detectMimeFromBytes(new Uint8Array(fileBuffer.slice(0, 12)));
-  if (!detectedType || detectedType !== file.type) {
+  // Detect MIME type from magic bytes — file.type comes from the client-controlled
+  // Content-Type part header and cannot be trusted. Use the detected type as the
+  // source of truth: reject if unknown, reject if not in ALLOWED_TYPES.
+  const detectedType = detectMimeFromBytes(new Uint8Array(fileBuffer.slice(0, MAGIC_BYTES_TO_READ)));
+  if (!detectedType || !ALLOWED_TYPES.has(detectedType)) {
     return NextResponse.json(
-      { error: "File content does not match declared type" },
+      { error: "File content does not match an allowed image type" },
       { status: 400 }
     );
   }
 
+  const ext = detectedType.split("/")[1] === "jpeg" ? "jpg" : detectedType.split("/")[1];
+  const filePath = `${dev.id}_${slotIndex}.${ext}`;
+
   const { error: uploadError } = await sb.storage
     .from("billboards")
     .upload(filePath, fileBuffer, {
-      contentType: file.type,
+      contentType: detectedType,
       upsert: true,
     });
 
