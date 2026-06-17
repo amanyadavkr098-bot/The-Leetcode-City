@@ -224,12 +224,14 @@ export async function POST(request: NextRequest) {
 
       // Track arena solve to update relic progress atomically
       try {
-        const { data: newSolves } = await sb.rpc("increment_relic_progress", {
+        const { data: newSolves, error: relicErr } = await sb.rpc("increment_relic_progress", {
           p_developer_id: dev.id,
           p_field: "arena_solves",
         });
 
-        if ((newSolves ?? 0) >= 20) {
+        if (relicErr) {
+          console.error("[arena/submit] increment_relic_progress error:", relicErr.message);
+        } else if ((newSolves ?? 0) >= 20) {
           await sb.from("developer_relics").upsert(
             {
               developer_id: dev.id,

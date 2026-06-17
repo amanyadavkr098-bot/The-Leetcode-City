@@ -347,12 +347,14 @@ export async function POST(request: Request) {
 
     // Track raid win to update relic progress atomically
     try {
-      const { data: newWins } = await admin.rpc("increment_relic_progress", {
+      const { data: newWins, error: relicErr } = await admin.rpc("increment_relic_progress", {
         p_developer_id: attacker.id,
         p_field: "raid_wins",
       });
 
-      if ((newWins ?? 0) >= 1) {
+      if (relicErr) {
+        console.error("[raid/execute] increment_relic_progress error:", relicErr.message);
+      } else if ((newWins ?? 0) >= 1) {
         await admin.from("developer_relics").upsert(
           {
             developer_id: attacker.id,

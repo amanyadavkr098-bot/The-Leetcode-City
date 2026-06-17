@@ -22,6 +22,13 @@ AS $$
 DECLARE
   v_new_value INTEGER;
 BEGIN
+  -- Allowlist p_field to prevent arbitrary JSON key injection.
+  -- This function is called via the service-role client (server-side only),
+  -- but defence-in-depth: reject any field not in the known relic counter set.
+  IF p_field NOT IN ('arena_solves', 'raid_wins', 'docks_visits') THEN
+    RAISE EXCEPTION 'increment_relic_progress: invalid field %', p_field;
+  END IF;
+
   INSERT INTO developer_customizations (developer_id, item_id, config, updated_at)
   VALUES (
     p_developer_id,
