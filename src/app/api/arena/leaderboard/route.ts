@@ -13,8 +13,15 @@ function getRankTitle(rating: number, index: number): { title: string; badge: st
 export async function GET(request: NextRequest) {
   const sb = getSupabaseAdmin();
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 100);
-  const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
+  const limitRaw = parseInt(searchParams.get("limit") || "100", 10);
+  const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
+
+  if (!Number.isFinite(limitRaw) || !Number.isFinite(offsetRaw)) {
+    return NextResponse.json({ error: "Invalid pagination parameters" }, { status: 400 });
+  }
+
+  const limit = Math.min(Math.max(limitRaw, 1), 100);
+  const offset = Math.max(offsetRaw, 0);
 
   // Query ratings table, ordering by ELO rating desc
   const { data: leaderboard, error } = await sb
