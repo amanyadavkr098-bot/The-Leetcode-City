@@ -108,21 +108,6 @@ export async function POST(request: Request) {
 
   const slotIndex = parseInt(slotIndexStr, 10);
 
-  if (slotIndexRaw === null || slotIndexRaw instanceof File) {
-    return NextResponse.json(
-      { error: "Invalid slot_index" },
-      { status: 400 }
-    );
-  }
-
-  const slotIndex = parseInt(slotIndexRaw, 10);
-  if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-    return NextResponse.json(
-      { error: "Invalid slot_index" },
-      { status: 400 }
-    );
-  }
-
   if (slotIndex >= billboardCount) {
     return NextResponse.json(
       { error: `Invalid slot_index (you have ${billboardCount} billboard slots)` },
