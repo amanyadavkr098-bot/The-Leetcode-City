@@ -399,8 +399,8 @@ export default function ArcadeRoomPage({
         .then((d) => {
           const allRooms = (d?.rooms ?? []) as { slug: string; name: string }[];
           const choices = allRooms
-            .filter((r: any) => r.slug !== slug)
-            .map((r: any) => ({
+            .filter((r) => r.slug !== slug)
+            .map((r) => ({
               type: "elevator" as const,
               x: obj.x,
               y: obj.y,
@@ -763,9 +763,9 @@ export default function ArcadeRoomPage({
           width: obj.width,
           height: obj.height,
           label: obj.label,
-          destination: (obj as any).destination ?? "",
-          targetX: (obj as any).targetX,
-          targetY: (obj as any).targetY,
+          destination: obj.destination ?? "",
+          targetX: obj.targetX,
+          targetY: obj.targetY,
         }));
       const seen = new Set(apiPortals.map((p) => `${p.type}-${p.x}-${p.y}`));
       const combinedPortals = [...apiPortals];
@@ -1143,42 +1143,6 @@ export default function ArcadeRoomPage({
       resetMap();
     };
   }, [slug, router, isTyping, connectCallbacks]);
-
-  const handleAvatarConfirm = async () => {
-    setSavingAvatar(true);
-    try {
-      const isFirstTime = spriteIdRef.current === undefined;
-      const res = await fetch("/api/arcade/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sprite_id: selectedSprite }),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to save avatar:", res.status);
-        setShowMessage("Failed to save avatar");
-        setTimeout(() => setShowMessage(null), 3000);
-        return;
-      }
-
-      spriteIdRef.current = selectedSprite;
-      setShowAvatarModal(false);
-
-      if (isFirstTime) {
-        // First time — connect to PartyKit
-        connect(tokenRef.current, connectCallbacks(), selectedSprite, slug!);
-      } else {
-        // Already connected — just update sprite via WS
-        sendAvatar(selectedSprite);
-      }
-    } catch (err) {
-      console.error("Avatar save error:", err);
-      setShowMessage("Connection error");
-      setTimeout(() => setShowMessage(null), 3000);
-    } finally {
-      setSavingAvatar(false);
-    }
-  };
 
   const handleEditAvatar = () => {
     setShowAvatarModal(true);
