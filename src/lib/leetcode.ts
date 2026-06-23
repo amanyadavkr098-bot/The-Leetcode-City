@@ -101,10 +101,14 @@ export async function fetchLeetCodeWeeklySubmissions(username: string): Promise<
                 })
             });
 
-            if (!res.ok) continue;
+            // A failed request (or missing calendar) means we cannot compute a
+            // trustworthy weekly total. Return null so callers preserve the
+            // existing contribution count instead of overwriting it with a
+            // partial/zero value during a transient LeetCode outage.
+            if (!res.ok) return null;
             const data = await res.json();
             const calendarStr = data?.data?.matchedUser?.userCalendar?.submissionCalendar;
-            if (!calendarStr) continue;
+            if (!calendarStr) return null;
 
             const calendar = JSON.parse(calendarStr);
             now.setUTCHours(0, 0, 0, 0);
@@ -121,6 +125,7 @@ export async function fetchLeetCodeWeeklySubmissions(username: string): Promise<
         return totalWeeklyCount;
     } catch (err) {
         console.error("[lib/leetcode.ts] error fetching weekly submissions:", err);
-        return 0;
+        // Signal failure (not a real zero) so the caller keeps the prior count.
+        return null;
     }
 }
