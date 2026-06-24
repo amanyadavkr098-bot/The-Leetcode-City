@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs, react-hooks/immutability */
 import { useRef, useEffect, useState, useMemo, lazy, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Stats } from "@react-three/drei";
@@ -2125,6 +2125,8 @@ interface Props {
   initialFlightPos?: THREE.Vector3 | null;
   initialFlightYaw?: number | null;
   onEArcadeClick?: () => void;
+  onSkyTempleClick?: () => void;
+  onCodeForgeClick?: () => void;
   multiplayerPlayers?: Map<string, CityPlayer>;
 }
 
@@ -2189,6 +2191,8 @@ export default function CityCanvas({
   onRaidPhaseComplete,
   onLandmarkClick,
   onEArcadeClick,
+  onSkyTempleClick,
+  onCodeForgeClick,
   rabbitSighting,
   onRabbitCaught,
   rabbitCinematic,
@@ -2415,7 +2419,7 @@ export default function CityCanvas({
             <AstralObservatory onClick={() => { }} position={landmarkPositions[3]} />
             <CryptOfEchoes onClick={() => { }} position={landmarkPositions[4]} />
             <SunkenSanctum onClick={() => { }} position={landmarkPositions[5]} />
-            <CodeForge onClick={() => { }} position={landmarkPositions[6]} />
+            <CodeForge onClick={onCodeForgeClick ?? (() => { })} position={landmarkPositions[6]} />
           </Suspense>
           <EArcadeLandmark
             onClick={onEArcadeClick ?? (() => { })}
@@ -2426,7 +2430,7 @@ export default function CityCanvas({
           />
           <Suspense fallback={null}>
             <ChronoTower onClick={() => { }} position={landmarkPositions[8]} />
-            <SkyTemple onClick={() => { }} position={landmarkPositions[9]} />
+            <SkyTemple onClick={onSkyTempleClick ?? (() => { })} position={landmarkPositions[9]} />
             <FirecrawlBuilding onClick={() => { }} position={landmarkPositions[10]} />
             <SolanaBuilding onClick={() => { }} position={landmarkPositions[11]} />
             <CyberStation onClick={() => { }} position={landmarkPositions[12]} />
