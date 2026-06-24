@@ -21,6 +21,7 @@ import DungeonModal from "./DungeonModal";
 
 const Colosseum = lazy(() => import("./Colosseum"));
 const VoidObelisk = lazy(() => import("./VoidObelisk"));
+<DungeonPortal onClick={() => setDungeonOpen(true)} position={landmarkPositions[2]} />
 const DungeonPortal = lazy(() => import("./DungeonPortal"));
 const AstralObservatory = lazy(() => import("./AstralObservatory"));
 const CryptOfEchoes = lazy(() => import("./CryptOfEchoes"));
