@@ -3,8 +3,7 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { getStripe } from "@/lib/stripe";
 
 interface PurchaseRequest {
   idempotency_key?: string;
@@ -128,7 +127,7 @@ export async function POST(
   // payment intent is returned instead of creating a duplicate
   let paymentIntent: Stripe.PaymentIntent;
   try {
-    paymentIntent = await stripe.paymentIntents.create(
+    paymentIntent = await getStripe().paymentIntents.create(
       {
         amount: item.price_cents,
         currency: item.currency || "inr",
