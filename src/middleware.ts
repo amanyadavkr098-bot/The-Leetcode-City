@@ -140,34 +140,36 @@ export async function middleware(request: NextRequest) {
           },
         );
 
-    try {
-      // Timeout auth validation to prevent slow Supabase responses from
-      // blocking the entire request (seen up to 28s in prod logs).
-      const authTimeout = 5_000; // 5 seconds
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), authTimeout);
-
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        clearTimeout(timer);
+        // Timeout auth validation to prevent slow Supabase responses from
+        // blocking the entire request (seen up to 28s in prod logs).
+        const authTimeout = 5_000; // 5 seconds
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("AuthTimeout")), authTimeout)
+        );
 
-        if (error) {
-          console.warn(
-            "Supabase authentication validation failed:",
-            error.message || error,
-          );
-        } else {
-          void user; // session refreshed; user object not needed here
+        try {
+          const { data: { user }, error } = await Promise.race([
+            supabase.auth.getUser(),
+            timeoutPromise
+          ]);
+
+          if (error) {
+            console.warn(
+              "Supabase authentication validation failed:",
+              error.message || error,
+            );
+          } else {
+            void user; // session refreshed; user object not needed here
+          }
+        } catch (innerError) {
+          if (innerError instanceof Error && innerError.message === "AuthTimeout") {
+            console.warn("Supabase auth.getUser() timed out after 5s — continuing without session refresh");
+          } else {
+            throw innerError; // re-throw non-timeout errors to outer catch
+          }
         }
-      } catch (innerError) {
-        clearTimeout(timer);
-        if (innerError instanceof DOMException && innerError.name === "AbortError") {
-          console.warn("Supabase auth.getUser() timed out after 5s — continuing without session refresh");
-        } else {
-          throw innerError; // re-throw non-timeout errors to outer catch
-        }
-      }
-    } catch (error) {
+      } catch (error) {
       console.warn(
         "Supabase authentication validation threw an error:",
         error instanceof Error ? error.message : error,
