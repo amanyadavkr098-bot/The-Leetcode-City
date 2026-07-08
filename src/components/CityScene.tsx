@@ -377,53 +377,105 @@ export default function CityScene({
     return buildings[idx];
   }, [focusedBLower, lookup, buildings]);
 
-  const lastFocusUpdate = useRef(-1);
+  const chunkRefs = useRef<(THREE.Group | null)[]>([]);
+  const lastChunkUpdate = useRef(-1);
 
   useFrame(({ camera, clock, size }) => {
     const elapsed = clock.elapsedTime;
-    if (elapsed - lastFocusUpdate.current < 0.2) return;
-    lastFocusUpdate.current = elapsed;
+    
+    // Throttled updates (5Hz) for both chunk visibility and focus tracking
+    if (elapsed - lastChunkUpdate.current >= 0.2) {
+      lastChunkUpdate.current = elapsed;
 
-    if (!onFocusInfo || (!focusedLower && !focusedBLower)) return;
+      // 1. Dynamic chunk distance culling
+      const camX = camera.position.x;
+      const camZ = camera.position.z;
+      for (let i = 0; i < buildingChunks.length; i++) {
+        const group = chunkRefs.current[i];
+        if (group) {
+          const chunkData = buildingChunks[i];
+          const dx = camX - chunkData.cx;
+          const dz = camZ - chunkData.cz;
+          const distSq = dx * dx + dz * dz;
+          // 2000 units radius = 4,000,000 distSq.
+          // If camera is farther than this, hide the chunk to save GPU cycles.
+          group.visible = distSq < 4000000;
+        }
+      }
 
-    const fi = focusedLower ? lookup.indexByLogin.get(focusedLower) : undefined;
-    const fbi = focusedBLower
-      ? lookup.indexByLogin.get(focusedBLower)
-      : undefined;
-    const targetIdx = fi ?? fbi;
-    if (targetIdx === undefined) return;
-
-    const b = buildings[targetIdx];
-    const dx = camera.position.x - b.position[0];
-    const dz = camera.position.z - b.position[2];
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    _position.set(b.position[0], b.height * 0.65, b.position[2]);
-    _position.project(camera);
-    const screenX = (_position.x * 0.5 + 0.5) * size.width;
-    const screenY = (-_position.y * 0.5 + 0.5) * size.height;
-    onFocusInfo({ dist, screenX, screenY });
+      // 2. Focus beacon screen positioning updates
+      if (onFocusInfo && (focusedLower || focusedBLower)) {
+        const fi = focusedLower ? lookup.indexByLogin.get(focusedLower) : undefined;
+        const fbi = focusedBLower ? lookup.indexByLogin.get(focusedBLower) : undefined;
+        const targetIdx = fi ?? fbi;
+        if (targetIdx !== undefined) {
+          const b = buildings[targetIdx];
+          const dx = camera.position.x - b.position[0];
+          const dz = camera.position.z - b.position[2];
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          _position.set(b.position[0], b.height * 0.65, b.position[2]);
+          _position.project(camera);
+          const screenX = (_position.x * 0.5 + 0.5) * size.width;
+          const screenY = (-_position.y * 0.5 + 0.5) * size.height;
+          onFocusInfo({ dist, screenX, screenY });
+        }
+      }
+    }
   });
 
   useEffect(() => {
     return () => atlasTexture.dispose();
   }, [atlasTexture]);
 
+  const buildingChunks = useMemo(() => {
+    const CHUNK_SIZE = 1500; // Increased to reduce number of chunks/draw calls
+    const map = new Map<string, CityBuilding[]>();
+    for (const b of buildings) {
+      const cx = Math.floor(b.position[0] / CHUNK_SIZE);
+      const cz = Math.floor(b.position[2] / CHUNK_SIZE);
+      const key = `${cx},${cz}`;
+      let arr = map.get(key);
+      if (!arr) {
+        arr = [];
+        map.set(key, arr);
+      }
+      arr.push(b);
+    }
+    return Array.from(map.values()).map(chunk => {
+      // Calculate center of chunk for distance culling
+      let sumX = 0, sumZ = 0;
+      for (const b of chunk) { sumX += b.position[0]; sumZ += b.position[2]; }
+      const cx = sumX / chunk.length;
+      const cz = sumZ / chunk.length;
+      return { chunk, cx, cz };
+    });
+  }, [buildings]);
+
   return (
     <>
-      <InstancedBuildings
-        buildings={buildings}
-        colors={colors}
-        atlasTexture={atlasTexture}
-        focusedBuilding={focusedBuilding}
-        focusedBuildingB={focusedBuildingB}
-        onBuildingClick={onBuildingClick}
-        introMode={introMode}
-        holdRise={holdRise}
-        liveByLogin={liveByLogin}
-        cityEnergy={cityEnergy}
-        timeRef={timeRef}
-        weatherMode={weatherMode}
-      />
+      {buildingChunks.map((chunkData, idx) => (
+        <group
+          key={`chunk-${idx}`}
+          ref={(el) => {
+            chunkRefs.current[idx] = el;
+          }}
+        >
+          <InstancedBuildings
+            buildings={chunkData.chunk}
+            colors={colors}
+            atlasTexture={atlasTexture}
+            focusedBuilding={focusedBuilding}
+            focusedBuildingB={focusedBuildingB}
+            onBuildingClick={onBuildingClick}
+            introMode={introMode}
+            holdRise={holdRise}
+            liveByLogin={liveByLogin}
+            cityEnergy={cityEnergy}
+            timeRef={timeRef}
+            weatherMode={weatherMode}
+          />
+        </group>
+      ))}
 
 
 

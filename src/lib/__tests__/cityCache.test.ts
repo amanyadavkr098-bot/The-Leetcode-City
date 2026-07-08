@@ -4,9 +4,11 @@ const mockData = {
   buildings: [],
   plazas: [],
   decorations: [],
+  blocks: [],
   river: null,
   bridges: [],
   districtZones: [],
+  landmarkPositions: [],
   stats: { total_developers: 0, total_contributions: 0 },
 };
 

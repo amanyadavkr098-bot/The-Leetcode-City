@@ -16,7 +16,6 @@ import {
 } from "@/lib/raid";
 import { ITEM_UNLOCK_LEVELS } from "@/lib/zones";
 import {
-  getIsoWeekStart,
   getIsoWeekStartDateString,
   getUtcDateString,
 } from "@/lib/week";
@@ -79,6 +78,8 @@ export async function POST(request: Request) {
   if (!target_login || typeof target_login !== "string") {
     return NextResponse.json({ error: "Missing target_login" }, { status: 400 });
   }
+
+  const raidWeekStart = getIsoWeekStartDateString();
 
   const admin = getSupabaseAdmin();
 
@@ -164,7 +165,6 @@ export async function POST(request: Request) {
   let attackerConsumableItemId: string | null = null;
 
   if (consumable_item_id) {
-    const currentWeekStr = getIsoWeekStartDateString();
     const { data: consumable } = await admin
       .from("developer_consumables")
       .select("id, quantity, weekly_uses, last_reset_week")
@@ -177,13 +177,13 @@ export async function POST(request: Request) {
 
     if (consumable && consumable.quantity > 0) {
       let currentUses = consumable.weekly_uses;
-      if (currentWeekStr !== resetWeekStr) currentUses = 0;
+      if (raidWeekStart !== resetWeekStr) currentUses = 0;
       if (currentUses < 3) attackerConsumableItemId = consumable_item_id;
     } else {
       const reqLevel = ITEM_UNLOCK_LEVELS[consumable_item_id];
       const isLevelUnlocked = reqLevel && xpLevel >= reqLevel;
       if (isLevelUnlocked || consumable_item_id === "scouting_satellite") {
-        if (!consumable || consumable.weekly_uses < 3 || resetWeekStr !== currentWeekStr) {
+        if (!consumable || consumable.weekly_uses < 3 || resetWeekStr !== raidWeekStart) {
           attackerConsumableItemId = consumable_item_id;
         }
       }
@@ -206,6 +206,21 @@ export async function POST(request: Request) {
     }
   }
 
+  const consumeDeveloperItem = async (devId: number, itemId: string) => {
+    const { data, error } = await admin.rpc("consume_consumable", {
+      p_developer_id: devId,
+      p_item_id: itemId,
+      p_week_start: raidWeekStart,
+    });
+
+    if (error) {
+      console.error("[raid/execute] consume_consumable RPC error:", error.message);
+      return false;
+    }
+
+    return data === true;
+  };
+
   // Handle defender active defenses (unchanged)
   let activeDefenses: string[] = Array.isArray(defender.active_defenses) ? defender.active_defenses : [];
   let defenderItemUsed = false;
@@ -220,10 +235,9 @@ export async function POST(request: Request) {
       .gt("quantity", 0);
 
     if (availableDefenses && availableDefenses.length > 0) {
-      const currentWeekStr = getIsoWeekStartDateString();
       for (const def of availableDefenses) {
         let currentUses = def.weekly_uses;
-        if (getUtcDateString(def.last_reset_week) !== currentWeekStr) currentUses = 0;
+        if (getUtcDateString(def.last_reset_week) !== raidWeekStart) currentUses = 0;
         if (currentUses < 3) {
           activeDefenses = [def.item_id];
           defenderItemUsed = true;
@@ -272,7 +286,7 @@ export async function POST(request: Request) {
   if (attackerConsumableItemId) attack.breakdown.boost_item = attackerConsumableItemId;
   if (defenderEffectiveDefense) defense.breakdown.boost_item = defenderEffectiveDefense;
 
-  // ── Atomic raid execution — all guards + INSERT in one DB call ──
+  // ── Atomic raid execution — guards, consumable spend, and INSERT in one DB call ──
   const { data: raidResult, error: raidError } = await admin.rpc("execute_raid", {
     p_attacker_id:       attacker.id,
     p_defender_id:       defender.id,
@@ -283,6 +297,8 @@ export async function POST(request: Request) {
     p_defense_breakdown: defense.breakdown,
     p_vehicle:           vehicle,
     p_tag_style:         tagStyle,
+    p_consumable_item_id: attackerConsumableItemId,
+    p_week_start:        raidWeekStart,
   });
 
   if (raidError) {
@@ -294,10 +310,11 @@ export async function POST(request: Request) {
 
   if (!result?.ok) {
     const errorMap: Record<string, { error: string; status: number }> = {
-      cooldown:    { error: "Too fast, wait before raiding again", status: 429 },
-      daily_cap:   { error: "Daily raid limit reached", status: 429 },
+      cooldown:     { error: "Too fast, wait before raiding again", status: 429 },
+      daily_cap:    { error: "Daily raid limit reached", status: 429 },
       peace_shield: { error: "Target has an active Peace Shield", status: 429 },
-      weekly_pair: { error: "Already raided this target this week", status: 429 },
+      weekly_pair:  { error: "Already raided this target this week", status: 429 },
+      consumable:   { error: "Raid blocked", status: 429 },
     };
     const mapped = errorMap[result?.error_code] ?? { error: "Raid blocked", status: 429 };
     return NextResponse.json({ error: mapped.error }, { status: mapped.status });
@@ -311,17 +328,6 @@ export async function POST(request: Request) {
   if (boostPurchaseIdToConsume) {
     await admin.from("purchases").update({ status: "consumed" }).eq("id", boostPurchaseIdToConsume);
   }
-
-  const consumeDeveloperItem = async (devId: number, itemId: string) => {
-    const currentWeekStr = getIsoWeekStartDateString();
-    await admin.rpc("consume_consumable", {
-      p_developer_id: devId,
-      p_item_id: itemId,
-      p_week_start: currentWeekStr,
-    });
-  };
-
-  if (attackerConsumableItemId) await consumeDeveloperItem(attacker.id, attackerConsumableItemId);
   if (defenderItemUsed && activeDefenses.length > 0) await consumeDeveloperItem(defender.id, activeDefenses[0]);
 
   if (success) {

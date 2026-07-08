@@ -37,9 +37,14 @@ const TANK_FIRE_DELAY = 0.45;
 const TANK_FIRE_INTERVAL = 0.65;
 const TANK_FIRE_FLASH_DURATION = 0.16;
 
-// Ground vehicle constants
+// Ground vehicle constants and configs
+// GROUND_FIRE_OFFSET determines the distance from the target building where the ground vehicle (tank) stops to fire.
 const GROUND_FIRE_OFFSET = 85;
+
+// Set of all vehicle types that should behave as ground vehicles instead of taking the orbital flight path.
 const GROUND_VEHICLES = new Set(["vehicle_tank"]);
+
+// Helper utility to detect if a specific vehicle type is registered as a ground vehicle.
 const isGroundVehicle = (type: string) => GROUND_VEHICLES.has(type);
 
 // ─── Easing ───────────────────────────────────────────────────
@@ -449,10 +454,14 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
     attackElapsedRef.current = isAttacking ? attackElapsedRef.current + delta : 0;
 
     if (turretRef.current && tankRef.current && targetPos) {
+      // Force update world matrices to make sure worldToLocal coordinates are precise
+      tankRef.current.updateMatrixWorld(true);
+      
       _localTarget.copy(targetPos);
       tankRef.current.worldToLocal(_localTarget);
 
-      const targetYaw = Math.atan2(_localTarget.x, _localTarget.z + 0.2);
+      // Facing -Z yaw target angle calculation relative to turret offset (0.2 z)
+      const targetYaw = Math.atan2(-_localTarget.x, -(_localTarget.z - 0.2));
       turretRef.current.rotation.y = THREE.MathUtils.lerp(
         turretRef.current.rotation.y,
         targetYaw,
@@ -462,7 +471,8 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
 
     const firePulse = isAttacking ? getTankFirePulse(attackElapsedRef.current) : 0;
     if (cannonRef.current) {
-      cannonRef.current.position.z = -firePulse * 0.35;
+      // Since cannon points along -Z, recoil slides it in the +Z direction
+      cannonRef.current.position.z = firePulse * 0.35;
     }
 
     if (muzzleFlashRef.current) {
@@ -480,30 +490,30 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
         <meshStandardMaterial color="#4b5320" emissive="#2c3012" emissiveIntensity={0.2} />
       </mesh>
       {/* Rotating Turret */}
-      <group ref={turretRef} position={[0, 0.45, -0.2]}>
+      <group ref={turretRef} position={[0, 0.45, 0.2]}>
         {/* Turret Structure */}
         <mesh>
           <cylinderGeometry args={[0.5, 0.6, 0.4, 8]} />
           <meshStandardMaterial color="#3a4018" />
         </mesh>
         <group ref={cannonRef}>
-          {/* Main Cannon */}
-          <mesh position={[0, 0, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
+          {/* Main Cannon (facing -Z) */}
+          <mesh position={[0, 0, -1.4]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.08, 0.12, 1.8, 8]} />
             <meshStandardMaterial color="#222" />
           </mesh>
           {/* Cannon Muzzle Brake */}
-          <mesh position={[0, 0, 2.3]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[0, 0, -2.3]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} />
             <meshStandardMaterial color="#111" />
           </mesh>
           {/* Muzzle flash */}
-          <group ref={muzzleFlashRef} position={[0, 0, 2.55]} visible={false}>
+          <group ref={muzzleFlashRef} position={[0, 0, -2.55]}>
             <mesh>
               <sphereGeometry args={[0.32, 8, 8]} />
               <meshBasicMaterial color="#fff3a3" transparent opacity={0.9} depthWrite={false} />
             </mesh>
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <coneGeometry args={[0.45, 0.9, 8]} />
               <meshBasicMaterial color="#ff7a18" transparent opacity={0.75} depthWrite={false} />
             </mesh>
@@ -546,17 +556,17 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
           </mesh>
         ))}
       </group>
-      {/* Headlights */}
-      <mesh position={[-0.6, 0.1, 1.26]}>
+      {/* Headlights (facing -Z) */}
+      <mesh position={[-0.6, 0.1, -1.26]}>
         <boxGeometry args={[0.2, 0.1, 0.1]} />
         <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} toneMapped={false} />
       </mesh>
-      <mesh position={[0.6, 0.1, 1.26]}>
+      <mesh position={[0.6, 0.1, -1.26]}>
         <boxGeometry args={[0.2, 0.1, 0.1]} />
         <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} toneMapped={false} />
       </mesh>
-      <pointLight position={[-0.6, 0.1, 1.5]} color="#ffaa00" intensity={1} distance={3} />
-      <pointLight position={[0.6, 0.1, 1.5]} color="#ffaa00" intensity={1} distance={3} />
+      <pointLight position={[-0.6, 0.1, -1.5]} color="#ffaa00" intensity={1} distance={3} />
+      <pointLight position={[0.6, 0.1, -1.5]} color="#ffaa00" intensity={1} distance={3} />
     </group>
   );
 }
@@ -1413,6 +1423,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
   const isGround = useMemo(() => isGroundVehicle(vehicleType), [vehicleType]);
 
   // Ground vehicle positions: start at attacker ground level, drive to defender
+  // groundStartPos: The coordinates where the tank spawns on the ground (concrete walkway Y = 0.35).
   const groundStartPos = useMemo(() => {
     return new THREE.Vector3(
       attackerPos.x,
@@ -1421,6 +1432,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [attackerPos]);
 
+  // groundFirePos: The final stationary firing point on the ground level, positioned a offset distance away from the defender.
   const groundFirePos = useMemo(() => {
     // Fire position: on the ground, GROUND_FIRE_OFFSET away from defender
     return new THREE.Vector3(
@@ -1430,6 +1442,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [defenderTopPos, flightDir]);
 
+  // groundDriveEndPos: The target point for the intro driving phase (8 units forward from the spawn point).
   const groundDriveEndPos = useMemo(() => {
     // Where the intro drive-forward ends (ground level, 8 units forward)
     return new THREE.Vector3(
@@ -1439,7 +1452,8 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [attackerPos, flightDir]);
 
-  // Ground flight curve: straight line on the ground with slight approach curve
+  // groundFlightCurve: Generates a 3D path curve for the cruise/flight phase.
+  // Instead of a straight line, it interpolates with a sideways offset (S-Curve) at ground level.
   const groundFlightCurve = useMemo(() => {
     const mid = new THREE.Vector3().lerpVectors(groundDriveEndPos, groundFirePos, 0.5);
     mid.y = 0.35; // flat on walkway ground level
