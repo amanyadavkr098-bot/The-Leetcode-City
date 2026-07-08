@@ -1,0 +1,54 @@
+name: LeetCode User Sync Pipeline
+
+on:
+  schedule:
+    - cron: "0 */2 * * *" # Every 2 hours
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Number of profiles to refresh"
+        required: true
+        default: "300"
+      concurrency:
+        description: "Concurrency limit"
+        required: true
+        default: "5"
+      discover_pages:
+        description: "Number of global ranking pages to scan for discovery"
+        required: true
+        default: "5"
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Sync Pipeline
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://ykqxkfazxsyantffjouf.supabase.co' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '300' }}"
+          CONCURRENCY="${{ github.event.inputs.concurrency || '5' }}"
+          DISCOVER_PAGES="${{ github.event.inputs.discover_pages || '5' }}"
+          
+          echo "🚀 Starting LeetCode User Sync Pipeline..."
+          echo "Parameters: Limit=$LIMIT, Concurrency=$CONCURRENCY, Discover Pages=$DISCOVER_PAGES"
+          
+          npx tsx scripts/lc-hourly-fetcher.ts --one-shot --limit "$LIMIT" --concurrency "$CONCURRENCY" --discover-pages "$DISCOVER_PAGES"
