@@ -84,8 +84,10 @@ interface Props { onClick: () => void; position?: [number, number, number]; }
 export default function ChronoTower({ onClick, position = [-767, 0, 352] }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const pendulumRef = useRef<THREE.Group>(null);
-  const hourHandRef = useRef<THREE.Mesh>(null);
-  const minuteHandRef = useRef<THREE.Mesh>(null);
+  const hourHandFrontRef = useRef<THREE.Mesh>(null);
+  const minuteHandFrontRef = useRef<THREE.Mesh>(null);
+  const hourHandBackRef = useRef<THREE.Mesh>(null);
+  const minuteHandBackRef = useRef<THREE.Mesh>(null);
   const mascotGroupRef = useRef<THREE.Group>(null);
 
   const { gl, camera } = useThree();
@@ -139,8 +141,10 @@ export default function ChronoTower({ onClick, position = [-767, 0, 352] }: Prop
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    if (hourHandRef.current) hourHandRef.current.rotation.z = -(t * 0.05);
-    if (minuteHandRef.current) minuteHandRef.current.rotation.z = -(t * 0.6);
+    if (hourHandFrontRef.current) hourHandFrontRef.current.rotation.z = -(t * 0.05);
+    if (minuteHandFrontRef.current) minuteHandFrontRef.current.rotation.z = -(t * 0.6);
+    if (hourHandBackRef.current) hourHandBackRef.current.rotation.z = -(t * 0.05);
+    if (minuteHandBackRef.current) minuteHandBackRef.current.rotation.z = -(t * 0.6);
     if (pendulumRef.current) pendulumRef.current.rotation.z = Math.sin(t * 1.5) * 0.25;
     
     if (mascotGroupRef.current) {
@@ -183,13 +187,13 @@ export default function ChronoTower({ onClick, position = [-767, 0, 352] }: Prop
             );
           })}
           <group rotation={[0, side === -1 ? Math.PI : 0, 0]}>
-            <mesh ref={side === 1 ? hourHandRef : undefined} position={[0, 0, 1]}>
+            <mesh ref={side === 1 ? hourHandFrontRef : hourHandBackRef} position={[0, 0, 1]}>
               <boxGeometry args={[1.5, 12, 0.5]} />
               <meshStandardMaterial color={ACCENT} emissive={ACCENT} emissiveIntensity={1} toneMapped={false} />
             </mesh>
           </group>
           <group rotation={[0, side === -1 ? Math.PI : 0, 0]}>
-            <mesh ref={side === 1 ? minuteHandRef : undefined} position={[0, 0, 1.5]}>
+            <mesh ref={side === 1 ? minuteHandFrontRef : minuteHandBackRef} position={[0, 0, 1.5]}>
               <boxGeometry args={[0.8, 18, 0.3]} />
               <meshStandardMaterial color="#fff" emissive={ACCENT} emissiveIntensity={0.8} toneMapped={false} />
             </mesh>
