@@ -1956,3 +1956,43 @@ export const BinaryTree = memo(function BinaryTree({
     </group>
   );
 });
+
+// ─── Damage Cracks (Raid projectile impact markings) ──────────
+
+export const DamageCracks = memo(function DamageCracks({
+  impacts,
+}: {
+  width: number;
+  height: number;
+  depth: number;
+  impacts: THREE.Vector3[];
+}) {
+  return (
+    <group>
+      {impacts.map((pos, idx) => (
+        <group key={idx} position={[pos.x, pos.y, pos.z]}>
+          {/* Dark crack patch */}
+          <mesh>
+            <boxGeometry args={[1.8, 1.8, 1.8]} />
+            <meshStandardMaterial 
+              color="#1a1a1a" 
+              emissive="#b32400" 
+              emissiveIntensity={3} 
+              roughness={0.95}
+              toneMapped={false}
+            />
+          </mesh>
+          {/* Glowing hot debris sticking to the facade */}
+          <mesh position={[0.5, -0.4, 0.5]}>
+            <boxGeometry args={[0.7, 0.7, 0.7]} />
+            <meshStandardMaterial color="#2d2d2d" emissive="#ff3c00" emissiveIntensity={4} toneMapped={false} />
+          </mesh>
+          <mesh position={[-0.5, 0.6, -0.3]}>
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshStandardMaterial color="#0f0f0f" emissive="#ff6a00" emissiveIntensity={4} toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+});
