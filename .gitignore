@@ -67,3 +67,6 @@ packages/vscode-extension/*.vsix
 
 # scratch files
 scratch/
+
+# LeetCode seeder state
+scripts/seed-lc-state.json

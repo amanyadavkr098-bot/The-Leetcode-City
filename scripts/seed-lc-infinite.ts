@@ -150,29 +150,48 @@ async function fetchLCUserStats(username: string) {
       }
     }
   `;
-  try {
-    const res = await fetch("https://leetcode.com/graphql", {
-      method: "POST",
-      headers: LC_HEADERS,
-      body: JSON.stringify({ query, variables: { username } }),
-    });
+  const maxRetries = 3;
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      const res = await fetch("https://leetcode.com/graphql", {
+        method: "POST",
+        headers: LC_HEADERS,
+        body: JSON.stringify({ query, variables: { username } }),
+      });
 
-    if (!res.ok) {
-      console.warn(`⚠️  HTTP ${res.status} fetching stats for ${username}`);
-      return null;
+      if (res.status === 429) {
+        attempt++;
+        const delay = 5000 * Math.pow(2, attempt); // 10s, 20s, 40s
+        console.warn(`⚠️  Rate limited fetching stats for ${username} (HTTP 429). Attempt ${attempt}/${maxRetries}. Retrying in ${delay / 1000}s...`);
+        await sleep(delay);
+        continue;
+      }
+
+      if (!res.ok) {
+        console.warn(`⚠️  HTTP ${res.status} fetching stats for ${username}`);
+        return null;
+      }
+
+      const json = await res.json();
+
+      if (json?.data?.matchedUser && !json.data.matchedUser.userCalendar) {
+        // No calendar data (private profile, etc.) — treat like "not found" so callers skip it cleanly.
+        return null;
+      }
+
+      return json?.data ?? null;
+    } catch (err) {
+      attempt++;
+      if (attempt >= maxRetries) {
+        console.error(`Error fetching stats for ${username} after ${maxRetries} attempts:`, err);
+        return null;
+      }
+      const delay = 2000 * attempt;
+      await sleep(delay);
     }
-
-    const json = await res.json();
-
-    if (json?.data?.matchedUser && !json.data.matchedUser.userCalendar) {
-      // No calendar data (private profile, etc.) — treat like "not found" so callers skip it cleanly.
-      return null;
-    }
-
-    return json?.data ?? null;
-  } catch {
-    return null;
   }
+  return null;
 }
 
 // Upsert 
