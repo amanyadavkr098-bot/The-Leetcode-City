@@ -3,6 +3,12 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
 
+type FinalizePointsPurchaseResult = {
+    ok: boolean;
+    error_code: string | null;
+    points_remaining: number | null;
+};
+
 /**
  * @param {import('next/server').NextRequest} request
  */
@@ -134,7 +140,7 @@ export async function POST(request: Request) {
     // 5. Finalize the points purchase atomically:
     //    deduction, item fulfillment, purchase completion, and feed insertion
     //    must all succeed together.
-    const { data: finalizeResult, error: finalizeError } = await admin
+    const { data, error: finalizeError } = await admin
         .rpc("finalize_points_purchase", {
             p_purchase_id: purchase.id,
             p_developer_id: dev.id,
@@ -145,13 +151,20 @@ export async function POST(request: Request) {
         })
         .single();
 
+    const finalizeResult = data as FinalizePointsPurchaseResult | null;
+
     if (finalizeError) {
         await admin.from("purchases").delete().eq("id", purchase.id);
         console.error("[buy-with-points] finalize_points_purchase failed:", finalizeError);
         return NextResponse.json({ error: "Failed to complete purchase" }, { status: 500 });
     }
 
-    if (!finalizeResult?.ok) {
+    if (finalizeResult === null) {
+        await admin.from("purchases").delete().eq("id", purchase.id);
+        return NextResponse.json({ error: "Failed to complete purchase" }, { status: 500 });
+    }
+
+    if (!finalizeResult.ok) {
         await admin.from("purchases").delete().eq("id", purchase.id);
         if (finalizeResult.error_code === "not_enough_points") {
             return NextResponse.json({ error: "Not enough points or a concurrent purchase already deducted your balance. Please try again." }, { status: 409 });
