@@ -1,46 +1,42 @@
--- ============================================================
--- Supabase Realtime Multiplayer Tables
--- ============================================================
-
--- 1. arcade_active_players — heartbeats for room presence tracking
+-- Create active players table for multiplayer presence heartbeat tracking
 CREATE TABLE IF NOT EXISTS public.arcade_active_players (
-  user_id        uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  room_id        text NOT NULL REFERENCES public.arcade_rooms(slug) ON DELETE CASCADE,
-  last_heartbeat timestamptz NOT NULL DEFAULT now(),
-  created_at     timestamptz NOT NULL DEFAULT now()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  room_id TEXT NOT NULL,
+  last_heartbeat TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  CONSTRAINT unique_user_active_room UNIQUE (user_id, room_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_arcade_active_players_room ON public.arcade_active_players (room_id);
-CREATE INDEX IF NOT EXISTS idx_arcade_active_players_heartbeat ON public.arcade_active_players (last_heartbeat);
+-- Enable RLS
+ALTER TABLE public.arcade_active_players ENABLE ROW LEVEL SECURITY;
 
--- 2. arcade_chat_messages — chat history persistence
+-- Allow public read access to active players for counting
+CREATE POLICY "Allow public read access to active players" ON public.arcade_active_players
+  FOR SELECT TO public USING (true);
+
+-- Allow authenticated users to upsert their own presence heartbeats
+CREATE POLICY "Allow authenticated users to upsert heartbeats" ON public.arcade_active_players
+  FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Create chat messages table
 CREATE TABLE IF NOT EXISTS public.arcade_chat_messages (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id    text NOT NULL REFERENCES public.arcade_rooms(slug) ON DELETE CASCADE,
-  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  username   text NOT NULL,
-  text       text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  username TEXT NOT NULL,
+  text VARCHAR(100) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_arcade_chat_messages_room_created ON public.arcade_chat_messages (room_id, created_at);
+-- Enable RLS
+ALTER TABLE public.arcade_chat_messages ENABLE ROW LEVEL SECURITY;
 
--- ============================================================
--- Row Level Security (RLS) policies
--- ============================================================
-ALTER TABLE public.arcade_active_players enable row level security;
-ALTER TABLE public.arcade_chat_messages enable row level security;
+-- Allow public read access to chat messages
+CREATE POLICY "Allow public read access to chat messages" ON public.arcade_chat_messages
+  FOR SELECT TO public USING (true);
 
--- arcade_active_players policies
-CREATE POLICY "Public read active players" ON public.arcade_active_players
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users upsert active players" ON public.arcade_active_players
-  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- arcade_chat_messages policies
-CREATE POLICY "Public read chat messages" ON public.arcade_chat_messages
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users insert chat messages" ON public.arcade_chat_messages
+-- Allow authenticated users to insert messages
+CREATE POLICY "Allow authenticated users to insert chat" ON public.arcade_chat_messages
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
