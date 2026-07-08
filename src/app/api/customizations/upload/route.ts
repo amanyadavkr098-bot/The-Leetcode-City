@@ -162,6 +162,42 @@ export async function POST(request: Request) {
     );
   }
 
+  // Read existing config to build images array
+  const { data: existingConfig } = await sb
+    .from("developer_customizations")
+    .select("config")
+    .eq("developer_id", dev.id)
+    .eq("item_id", "billboard")
+    .maybeSingle();
+
+  let images: string[] = [];
+  if (existingConfig) {
+    const cfg = existingConfig.config as Record<string, unknown>;
+    if (Array.isArray(cfg?.images)) {
+      images = [...(cfg.images as string[])];
+    } else if (typeof cfg?.image_url === "string") {
+      // Migrate legacy single image to array
+      images = [cfg.image_url];
+    }
+  }
+
+  // Extend array if needed and set the slot
+  while (images.length <= slotIndex) {
+    images.push("");
+  }
+
+  // If replacing an existing image, delete it first to prevent storage exhaustion
+  if (images[slotIndex]) {
+    try {
+      const oldFileName = images[slotIndex].split("/").pop();
+      if (oldFileName) {
+        await sb.storage.from("billboards").remove([oldFileName]);
+      }
+    } catch (err) {
+      console.warn("Error cleaning up old billboard image:", err);
+    }
+  }
+
   const ext = detectedType.split("/")[1] === "jpeg" ? "jpg" : detectedType.split("/")[1];
   const filePath = `${dev.id}_${slotIndex}.${ext}`;
 
@@ -186,30 +222,6 @@ export async function POST(request: Request) {
     .getPublicUrl(filePath);
 
   const imageUrl = urlData.publicUrl;
-
-  // Read existing config to build images array
-  const { data: existingConfig } = await sb
-    .from("developer_customizations")
-    .select("config")
-    .eq("developer_id", dev.id)
-    .eq("item_id", "billboard")
-    .maybeSingle();
-
-  let images: string[] = [];
-  if (existingConfig) {
-    const cfg = existingConfig.config as Record<string, unknown>;
-    if (Array.isArray(cfg?.images)) {
-      images = [...(cfg.images as string[])];
-    } else if (typeof cfg?.image_url === "string") {
-      // Migrate legacy single image to array
-      images = [cfg.image_url];
-    }
-  }
-
-  // Extend array if needed and set the slot
-  while (images.length <= slotIndex) {
-    images.push("");
-  }
   images[slotIndex] = imageUrl;
 
   // Upsert customization with images array
