@@ -55,22 +55,6 @@ async function main() {
     if (note) console.log(`   Note: ${note}`);
     if (expiresAt) console.log(`   Expires: ${expiresAt}`);
     
-    // Auto-create table if it doesn't exist
-    const { error: rpcErr } = await sb.rpc('exec_sql', {
-        query: `
-        CREATE TABLE IF NOT EXISTS public.xp_redeem_codes (
-            id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-            code text UNIQUE NOT NULL,
-            xp_amount integer NOT NULL DEFAULT 500,
-            max_uses integer NOT NULL DEFAULT 1,
-            used_count integer NOT NULL DEFAULT 0,
-            expires_at timestamp with time zone,
-            note text,
-            created_at timestamp with time zone DEFAULT now()
-        );
-        `
-    });
-    // Ignore rpcErr because 'exec_sql' might not exist, we just hope the table exists.
 
     const codes: string[] = [];
 
