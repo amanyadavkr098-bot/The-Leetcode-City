@@ -411,7 +411,10 @@ function CameraFocus({
 
   // Use ref for buildings to avoid re-triggering animation on array changes
   const buildingsRef = useRef(buildings);
-  buildingsRef.current = buildings;
+  
+  useEffect(() => {
+    buildingsRef.current = buildings;
+  }, [buildings]);
 
   useEffect(() => {
     if (relicFocus) {
