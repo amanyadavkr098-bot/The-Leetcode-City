@@ -229,7 +229,7 @@ export async function POST(request: Request) {
     const { data: existingPurchases } = await sb
       .from("purchases")
       .select("id, amount_cents, provider")
-      .eq("developer_id", dev.id)
+      .or(`and(developer_id.eq.${dev.id},gifted_to.is.null),gifted_to.eq.${dev.id}`)
       .eq("item_id", item_id)
       .eq("status", "completed");
 
