@@ -1301,11 +1301,11 @@ export function CityProvider({ children }: { children: ReactNode }) {
           rawDevsRef.current[foundIdx] = {
             ...existing,
             ...devData,
-            loadout: devData.loadout ?? existing.loadout ?? null,
-            custom_color: devData.custom_color ?? existing.custom_color ?? null,
-            owned_items: devData.owned_items?.length ? devData.owned_items : existing.owned_items ?? [],
-            billboard_images: devData.billboard_images?.length ? devData.billboard_images : existing.billboard_images ?? [],
-            building_style: devData.building_style ?? existing.building_style ?? "tower",
+            loadout: devData.loadout !== undefined ? devData.loadout : existing.loadout ?? null,
+            custom_color: devData.custom_color !== undefined ? devData.custom_color : existing.custom_color ?? null,
+            owned_items: devData.owned_items !== undefined ? devData.owned_items : existing.owned_items ?? [],
+            billboard_images: devData.billboard_images !== undefined ? devData.billboard_images : existing.billboard_images ?? [],
+            building_style: devData.building_style !== undefined ? devData.building_style : existing.building_style ?? "tower",
           };
           const layout = generateCityLayout(rawDevsRef.current);
           setBuildings(layout.buildings);
