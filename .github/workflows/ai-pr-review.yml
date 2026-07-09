@@ -105,6 +105,23 @@ jobs:
 
             if (!prNumber) return;
 
+            async function submitReview(params) {
+              try {
+                await github.rest.pulls.createReview(params);
+              } catch (err) {
+                if (params.event === 'APPROVE') {
+                  console.warn("Approving PRs failed. Falling back to COMMENT. Error:", err.message);
+                  await github.rest.pulls.createReview({
+                    ...params,
+                    event: 'COMMENT',
+                    body: `⚠️ **Approval Fallback (Actions Permission Restriction):**\n\n${params.body}`
+                  });
+                } else {
+                  throw err;
+                }
+              }
+            }
+
             const prInfo = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -123,7 +140,7 @@ jobs:
             const diff = typeof diffResponse.data === 'string' ? diffResponse.data : '';
             if (!diff || diff.length === 0) {
               console.log("Empty diff. Auto-approving.");
-              await github.rest.pulls.createReview({
+              await submitReview({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -181,7 +198,7 @@ jobs:
               if (findings.length > 0) {
                 const body = `🔍 **Basic Security Scan: Review Needed**\n\nThe following patterns were detected in the PR diff and require manual review:\n\n${findings.join('\n')}\n\n> This is an automated scan fallback. A maintainer should review these findings before merging.\n\nHey @${prUser}, please review these flagged items and update your PR if necessary! 🛠️`;
 
-                await github.rest.pulls.createReview({
+                await submitReview({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber,
@@ -190,7 +207,7 @@ jobs:
                 });
                 console.log(`Basic scan found ${findings.length} patterns. Left a comment for manual review.`);
               } else {
-                await github.rest.pulls.createReview({
+                await submitReview({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber,
@@ -252,7 +269,7 @@ jobs:
                 .replace(/STATE: CHANGES_REQUESTED/g, '❌ **AI Review: Changes Requested**\n')
                 .replace(/STATE: COMMENT/g, '💬 **AI Review: Comment**\n');
 
-              await github.rest.pulls.createReview({
+              await submitReview({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -303,7 +320,7 @@ jobs:
               }
 
               if (findings.length > 0) {
-                await github.rest.pulls.createReview({
+                await submitReview({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber,
@@ -311,7 +328,7 @@ jobs:
                   event: 'COMMENT'
                 });
               } else {
-                await github.rest.pulls.createReview({
+                await submitReview({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber,
