@@ -4,6 +4,11 @@ import { createServerSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
+type LeetCodeApiResponse = {
+  data?: Record<string, unknown>;
+  errors?: { message?: string }[];
+};
+
 async function hashKey(key: string): Promise<string> {
   const data = new TextEncoder().encode(key + (process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""));
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -90,7 +95,7 @@ async function fetchLeetCodeUser(username: string) {
       return null;
     }
     const rawText = await res.text();
-    let json: any;
+    let json: LeetCodeApiResponse;
     try { json = JSON.parse(rawText); } catch (err) { 
       console.error(`[/api/dev] LeetCode non-JSON response for "${username}": ${rawText.substring(0, 200)}`, err);
       return null;
@@ -99,7 +104,7 @@ async function fetchLeetCodeUser(username: string) {
       console.error(`[/api/dev] LeetCode returned no matchedUser for "${username}". Status: ${res.status}. firstErr:`, json?.errors?.[0]?.message);
     }
     if (json?.data?.matchedUser) {
-      const mu = json.data.matchedUser;
+      const mu = json.data.matchedUser as Record<string, unknown>;
       if (mu.yearCurrent) {
         (mu as Record<string, unknown>)[`y${currentYear}`] = mu.yearCurrent;
         if (!mu.userCalendar) {
