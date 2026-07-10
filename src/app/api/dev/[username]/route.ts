@@ -4,15 +4,60 @@ import { createServerSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
-type LeetCodeYearCalendar = {
+interface LeetCodeProfile {
+  realName?: string;
+  userAvatar?: string;
+  reputation?: number;
+  aboutMe?: string;
+  countryName?: string;
+  school?: string;
+  company?: string;
+  websites?: string[];
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+}
+
+interface LeetCodeYearCalendar {
   streak?: number;
   totalActiveDays?: number;
-};
+}
 
-type LeetCodeApiResponse = {
-  data?: Record<string, unknown>;
+interface LeetCodeContestRanking {
+  rating?: number;
+  globalRanking?: number;
+  attendedContestsCount?: number;
+  topPercentage?: number;
+  badge?: { name?: string };
+}
+
+interface LeetCodeMatchedUser {
+  username?: string;
+  profile?: LeetCodeProfile;
+  submitStats?: {
+    acSubmissionNum?: { difficulty: string; count: number }[];
+    totalSubmissionNum?: { difficulty: string; count: number }[];
+  };
+  userCalendar?: LeetCodeYearCalendar;
+  maxStreak?: number;
+  badges?: { name: string; icon: string; displayName: string }[];
+  tagProblemCounts?: {
+    advanced?: { tagName: string; problemsSolved: number }[];
+    intermediate?: { tagName: string; problemsSolved: number }[];
+    fundamental?: { tagName: string; problemsSolved: number }[];
+  };
+  yearCurrent?: LeetCodeYearCalendar;
+  yearPrev?: LeetCodeYearCalendar;
+  [key: string]: unknown;
+}
+
+interface LeetCodeApiResponse {
+  data?: {
+    matchedUser?: LeetCodeMatchedUser;
+    userContestRanking?: LeetCodeContestRanking;
+  };
   errors?: { message?: string }[];
-};
+}
 
 async function hashKey(key: string): Promise<string> {
   const data = new TextEncoder().encode(key + (process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""));
@@ -108,16 +153,19 @@ async function fetchLeetCodeUser(username: string) {
     if (!json?.data?.matchedUser) {
       console.error(`[/api/dev] LeetCode returned no matchedUser for "${username}". Status: ${res.status}. firstErr:`, json?.errors?.[0]?.message);
     }
-    if (json?.data?.matchedUser) {
-      const mu = json.data.matchedUser as Record<string, unknown>;
+    const apiData = json.data;
+    if (apiData?.matchedUser) {
+      const mu = apiData.matchedUser;
       if (mu.yearCurrent) {
-        (mu as Record<string, unknown>)[`y${currentYear}`] = mu.yearCurrent;
+        mu[`y${currentYear}`] = mu.yearCurrent;
         if (!mu.userCalendar) {
-          const yearCurrent = mu.yearCurrent as LeetCodeYearCalendar;
-          mu.userCalendar = { streak: yearCurrent.streak ?? 0, totalActiveDays: yearCurrent.totalActiveDays ?? 0 };
+          mu.userCalendar = {
+            streak: mu.yearCurrent.streak ?? 0,
+            totalActiveDays: mu.yearCurrent.totalActiveDays ?? 0,
+          };
         }
       }
-      if (mu.yearPrev) (mu as Record<string, unknown>)[`y${prevYear}`] = mu.yearPrev;
+      if (mu.yearPrev) mu[`y${prevYear}`] = mu.yearPrev;
       mu.maxStreak = parseMaxStreak(mu, currentYear);
     }
     return json?.data ?? null;
