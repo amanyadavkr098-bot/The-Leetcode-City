@@ -77,20 +77,15 @@ export async function POST(request: Request) {
             .select("id")
             .eq("developer_id", dev.id)
             .eq("status", "completed");
-
           const hasPurchases = !!(dbPurchases && dbPurchases.length > 0);
 
           const staticRelic = STATIC_RELICS.find((r) => r.id === relicId);
-
           if (staticRelic) {
             if (relicId === "relic_lith_dawnstone") {
               const lcStreak = dev.lc_streak ?? 0;
               const appStreak = dev.app_streak ?? 0;
               const dailiesStreak = dev.dailies_streak ?? 0;
-              isUnlocked =
-                lcStreak >= 7 ||
-                appStreak >= 7 ||
-                dailiesStreak >= 7;
+              isUnlocked = lcStreak >= 7 || appStreak >= 7 || dailiesStreak >= 7;
             } else if (relicId === "relic_lith_harbor_key") {
               isUnlocked = (trackerProgress.docks_visits ?? 0) >= 5;
             } else if (relicId === "relic_meso_core_oscillator") {
@@ -115,21 +110,13 @@ export async function POST(request: Request) {
               const dailiesStreak = dev.dailies_streak ?? 0;
               const lcStreak = dev.lc_streak ?? 0;
               const dailiesCompleted = dev.dailies_completed ?? 0;
-
-              isUnlocked =
-                appStreak >= 365 ||
-                dailiesStreak >= 365 ||
-                lcStreak >= 365 ||
-                dailiesCompleted >= 182;
+              isUnlocked = appStreak >= 365 || dailiesStreak >= 365 || lcStreak >= 365 || dailiesCompleted >= 182;
             }
           }
         }
 
         if (!isUnlocked) {
-          return NextResponse.json(
-            { error: "Relic is locked" },
-            { status: 403 }
-          );
+          return NextResponse.json({ error: "Relic is locked" }, { status: 403 });
         }
       }
     }
@@ -149,11 +136,8 @@ export async function POST(request: Request) {
             developer_id: dev.id,
             relic_id: relicId,
             is_equipped: true,
-            created_at: new Date().toISOString(),
           },
-          {
-            onConflict: "developer_id,relic_id",
-          }
+          { onConflict: "developer_id,relic_id" }
         );
     }
   }
