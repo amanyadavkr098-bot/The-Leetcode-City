@@ -258,77 +258,36 @@ export async function POST(request: Request) {
             sendPurchaseNotification(Number(developerId), githubLogin ?? "", pendingId, itemId);
           }
         } else {
-          const giftedTo = session.metadata?.gifted_to;
-          const ownerId = giftedTo ? Number(giftedTo) : Number(developerId);
-
-          // Verify amount and currency match the item's expected price
-          const expectedItem = await sb
-            .from("items")
-            .select("price_usd_cents, price_brl_cents")
-            .eq("id", itemId)
-            .single();
-          if (expectedItem.data) {
-            const expectedCents = session.currency === "brl"
-              ? expectedItem.data.price_brl_cents
-              : expectedItem.data.price_usd_cents;
-            if (Number(session.amount_total) !== expectedCents) {
-              console.error(
-                `Price mismatch for item ${itemId}: expected ${expectedCents} ${session.currency}, ` +
-                `got ${session.amount_total}`
-              );
-              break;
-            }
-          }
-
-          // Check if this txId already has a completed/delivered purchase
+          // Check if this txId already has a completed/delivered/processing purchase
           const { data: alreadyProcessed, error: alreadyProcessedError } = await sb
             .from("purchases")
             .select("id, status")
             .eq("provider_tx_id", txId)
-            .in("status", ["completed", "delivered"])
+            .in("status", ["completed", "delivered", "processing"])
             .maybeSingle();
+
           if (alreadyProcessedError) {
             throw new InfrastructureError(
               `[Stripe webhook] failed to validate processed tx ${txId}: ${alreadyProcessedError.message}`,
               alreadyProcessedError
             );
           }
+
           if (alreadyProcessed) {
-            console.log(`Purchase ${alreadyProcessed.id} already fulfilled — skipping duplicate webhook`);
+            console.log(`[Stripe webhook] Purchase ${alreadyProcessed.id} already fulfilled — skipping duplicate webhook`);
             break;
           }
 
-          // Use the UNIQUE constraint on provider_tx_id to guard against
-          // concurrent insert — only the first webhook wins
-          const { data: inserted, error: insertError } = await sb
-            .from("purchases")
-            .insert({
-              developer_id: Number(developerId),
-              item_id: itemId,
-              provider: "stripe",
-              provider_tx_id: txId,
-              idempotency_key: idempotencyKey ?? null,
-              amount_cents: session.amount_total ?? 0,
-              currency: session.currency ?? "usd",
-              status: "processing",
-              ...(giftedTo ? { gifted_to: Number(giftedTo) } : {}),
-            })
-            .select("id")
-            .maybeSingle();
-          if (insertError && insertError.code !== "23505") {
-            throw new InfrastructureError(
-              `[Stripe webhook] Failed to insert purchase for tx ${txId}: ${insertError.message}`,
-              insertError
-            );
-          }
-
-          if (inserted) {
-            const { status: purchaseStatus } = await fulfillItemPurchase(ownerId, itemId, sb);
-            await sb
-              .from("purchases")
-              .update({ status: purchaseStatus })
-              .eq("id", inserted.id);
-            await autoEquipIfSolo(ownerId, itemId);
+          console.error(`[Stripe webhook] Pending purchase not found for session ${session.id}. Cannot safely fulfill item ${itemId}. Issuing refund.`);
+          if (paymentIntentId) {
+            try {
+              await stripe.refunds.create({
+                payment_intent: paymentIntentId,
+                reason: "requested_by_customer",
+              });
+            } catch (refundError) {
+              console.error("[Stripe webhook] Refund failed for missing purchase:", refundError);
+            }
           }
         }
         break;
