@@ -168,28 +168,49 @@ export async function POST(request: Request) {
 
         const txId = paymentIntentId ?? session.id;
 
-        // Atomically claim the pending purchase — only succeeds if still pending
-        const { data: pending, error: pendingError } = await sb
-          .from("purchases")
-          .update({
-            status: "processing",
-            provider_tx_id: txId,
-          })
-          .eq("developer_id", Number(developerId))
-          .eq("item_id", itemId)
-          .eq("status", "pending")
-          .eq("provider", "stripe")
-          .select()
-          .maybeSingle();
+        // Atomically claim the pending purchase with stock check
+        const { data: claimData, error: claimError } = await sb.rpc("claim_pending_purchase_atomic", {
+          p_developer_id: Number(developerId),
+          p_item_id: itemId,
+          p_provider: "stripe",
+          p_tx_id: txId,
+        });
 
-        if (pendingError) {
+        if (claimError) {
           throw new InfrastructureError(
-            `[Stripe webhook] Failed to claim pending purchase ${txId}: ${pendingError.message}`,
-            pendingError
+            `[Stripe webhook] Failed to claim pending purchase ${txId}: ${claimError.message}`,
+            claimError
           );
         }
 
-        if (pending) {
+        const claimResult = Array.isArray(claimData) ? claimData[0] : claimData;
+
+        if (claimResult && claimResult.error_code === 'sold_out') {
+          console.error(`[Stripe webhook] Item ${itemId} oversold. Issuing Stripe refund for ${txId}.`);
+          let refundSuccess = false;
+          if (paymentIntentId) {
+            try {
+              await stripe.refunds.create({
+                payment_intent: paymentIntentId,
+                reason: "requested_by_customer",
+              });
+              refundSuccess = true;
+            } catch (refundError) {
+              console.error("[Stripe webhook] Refund failed:", refundError);
+            }
+          }
+          
+          if (claimResult.purchase_id) {
+            await sb.from("purchases").update({
+              status: refundSuccess ? "refunded" : "failed",
+              provider_tx_id: txId,
+            }).eq("id", claimResult.purchase_id).eq("status", "pending");
+          }
+          break;
+        }
+
+        if (claimResult && claimResult.ok && claimResult.purchase_id) {
+          const pendingId = claimResult.purchase_id;
           const giftedTo = session.metadata?.gifted_to;
           const ownerId = giftedTo ? Number(giftedTo) : Number(developerId);
           const { status: purchaseStatus } = await fulfillItemPurchase(ownerId, itemId, sb);
@@ -199,7 +220,7 @@ export async function POST(request: Request) {
             .update({
               status: purchaseStatus,
             })
-            .eq("id", pending.id);
+            .eq("id", pendingId);
 
           // Auto-equip if solo item in zone
           await autoEquipIfSolo(ownerId, itemId);
@@ -224,8 +245,8 @@ export async function POST(request: Request) {
             });
 
             // Gift notifications: receipt to buyer, alert to receiver
-            sendGiftSentNotification(Number(developerId), githubLogin ?? "", receiver?.github_login ?? "unknown", pending.id, itemId);
-            sendGiftReceivedNotification(Number(giftedTo), githubLogin ?? "someone", receiver?.github_login ?? "unknown", pending.id, itemId);
+            sendGiftSentNotification(Number(developerId), githubLogin ?? "", receiver?.github_login ?? "unknown", pendingId, itemId);
+            sendGiftReceivedNotification(Number(giftedTo), githubLogin ?? "someone", receiver?.github_login ?? "unknown", pendingId, itemId);
           } else {
             await sb.from("activity_feed").insert({
               event_type: "item_purchased",
@@ -234,7 +255,7 @@ export async function POST(request: Request) {
             });
 
             // Purchase receipt notification
-            sendPurchaseNotification(Number(developerId), githubLogin ?? "", pending.id, itemId);
+            sendPurchaseNotification(Number(developerId), githubLogin ?? "", pendingId, itemId);
           }
         } else {
           const giftedTo = session.metadata?.gifted_to;

@@ -180,17 +180,36 @@ export async function POST(request: Request) {
           break;
         }
 
-        // Atomic claim: transition pending → processing in one UPDATE.
-        // If a concurrent request already claimed it, claimed will be null.
-        const { data: claimed } = await sb
-          .from("purchases")
-          .update({ status: "processing" })
-          .eq("id", purchase.id)
-          .eq("status", "pending")
-          .select("id")
-          .maybeSingle();
+        // Atomic claim: transition pending → processing in one UPDATE with stock check.
+        const { data: claimData, error: claimError } = await sb.rpc("claim_pending_purchase_atomic", {
+          p_developer_id: purchase.developer_id,
+          p_item_id: purchase.item_id,
+          p_provider: "cashfree",
+          p_tx_id: orderId,
+          p_purchase_id: purchase.id
+        });
 
-        if (!claimed) {
+        if (claimError) {
+          throw new InfrastructureError(
+            `[Cashfree webhook] Failed to claim pending purchase ${orderId}: ${claimError.message}`,
+            claimError
+          );
+        }
+
+        const claimResult = Array.isArray(claimData) ? claimData[0] : claimData;
+
+        if (claimResult && claimResult.error_code === 'sold_out') {
+          console.error(`[Cashfree webhook] Item ${purchase.item_id} oversold. Manual refund required for ${orderId}.`);
+          if (claimResult.purchase_id) {
+            await sb.from("purchases").update({
+              status: "failed",
+              provider_tx_id: orderId,
+            }).eq("id", claimResult.purchase_id).eq("status", "pending");
+          }
+          break;
+        }
+
+        if (!claimResult || !claimResult.ok) {
           console.log(`[Cashfree webhook] Purchase ${purchase.id} already claimed by concurrent request — skipping`);
           break;
         }
