@@ -2732,7 +2732,7 @@ export default function CityCanvas({
       aria-label="3D LeetCode City — use arrow keys to move between buildings, Enter to open a profile, Escape to close. Press Tab to leave the city."
       tabIndex={0}
       onKeyDown={handleCanvasKeyDown}
-      camera={{ position: [400, 450, 600], fov: 55, near: 1.0, far: 6000 }}
+      camera={{ position: [400, 450, 600], fov: 55, near: 1.0, far: 6100 }}
       dpr={[1, 1.5]}
       onCreated={({ gl, scene }) => {
         try {
@@ -2987,16 +2987,10 @@ export default function CityCanvas({
               />
             </>
           )}
-      {/* Permanent fog blends sky↔ground to eliminate harsh horizon line */}
-      {!isRaining && (
-        <fog attach="fog" args={[t.fogColor, t.fogNear, t.fogFar]} />
-      )}
       {isRaining && (
         <>
           <RainParticles />
           <RainRippleGround />
-          <color attach="background" args={["#3a404a"]} />
-          <fog attach="fog" args={["#3a404a", 30, 300]} />
         </>
       )}
 
