@@ -4,6 +4,7 @@ import { POST } from "../route";
 
 const mockGetSupabaseAdmin = vi.fn();
 const mockGetStripe = vi.fn();
+const mockStripeRefundsCreate = vi.fn();
 const mockFulfillItemPurchase = vi.fn();
 const mockAutoEquipIfSolo = vi.fn();
 const mockSendPurchaseNotification = vi.fn();
@@ -120,6 +121,7 @@ function makeRequest(body: string) {
 describe("Stripe webhook route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockStripeRefundsCreate.mockResolvedValue({});
   });
 
   it("skips duplicate Stripe events before processing", async () => {
@@ -128,6 +130,7 @@ describe("Stripe webhook route", () => {
       from: (table: string) => createMockQuery(table, { callLog, stripeProcessedEventExists: true, processedEventInsertCount: { count: 0 } }),
     });
     mockGetStripe.mockReturnValue({
+      refunds: { create: (...args: unknown[]) => mockStripeRefundsCreate(...args) },
       webhooks: {
         constructEvent: vi.fn(() => ({ type: "checkout.session.expired", data: { object: { metadata: { type: "sky_ad" }, id: "sess_123" } } })),
       },
@@ -152,6 +155,7 @@ describe("Stripe webhook route", () => {
     });
     mockFulfillItemPurchase.mockRejectedValueOnce(new InfrastructureError("DB timeout", { code: "PGRST_TIMEOUT" }));
     mockGetStripe.mockReturnValue({
+      refunds: { create: (...args: unknown[]) => mockStripeRefundsCreate(...args) },
       webhooks: {
         constructEvent: vi.fn(() => ({
           type: "checkout.session.completed",
@@ -185,6 +189,7 @@ describe("Stripe webhook route", () => {
     });
     mockFulfillItemPurchase.mockRejectedValueOnce(new BusinessLogicError("Item already owned"));
     mockGetStripe.mockReturnValue({
+      refunds: { create: (...args: unknown[]) => mockStripeRefundsCreate(...args) },
       webhooks: {
         constructEvent: vi.fn(() => ({
           type: "checkout.session.completed",
@@ -203,5 +208,88 @@ describe("Stripe webhook route", () => {
     const response = await POST(makeRequest(JSON.stringify({} as unknown)));
     expect(response.status).toBe(200);
     expect(processedEventInsertCount.count).toBe(1);
+  });
+
+  it("issues a refund when no pending purchase is found", async () => {
+    const callLog: string[] = [];
+    const processedEventInsertCount = { count: 0 };
+    mockGetSupabaseAdmin.mockReturnValue({
+      from: (table: string) => createMockQuery(table, {
+        callLog,
+        stripeProcessedEventExists: false,
+        enablePendingPurchase: false,
+        processedEventInsertCount,
+      }),
+    });
+    mockGetStripe.mockReturnValue({
+      refunds: { create: (...args: unknown[]) => mockStripeRefundsCreate(...args) },
+      webhooks: {
+        constructEvent: vi.fn(() => ({
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              metadata: { developer_id: "1", item_id: "consumable" },
+              payment_intent: "pi_missing_purchase",
+              amount_total: 100,
+              currency: "usd",
+            },
+          },
+        })),
+      },
+    });
+
+    const response = await POST(makeRequest(JSON.stringify({} as unknown)));
+    expect(response.status).toBe(200);
+    expect(mockStripeRefundsCreate).toHaveBeenCalledWith({
+      payment_intent: "pi_missing_purchase",
+      reason: "requested_by_customer",
+    });
+  });
+
+  it("does not issue a refund when a processed purchase exists for the same txId", async () => {
+    const callLog: string[] = [];
+    const processedEventInsertCount = { count: 0 };
+    mockGetSupabaseAdmin.mockReturnValue({
+      from: (table: string) => {
+        const query = createMockQuery(table, {
+          callLog,
+          stripeProcessedEventExists: false,
+          enablePendingPurchase: false,
+          processedEventInsertCount,
+        });
+        if (table === "purchases") {
+          const originalMaybeSingle = query.maybeSingle;
+          query.maybeSingle = async () => {
+            const res = await originalMaybeSingle.call(query);
+            if (callLog[callLog.length - 1].includes("provider_tx_id") && callLog[callLog.length - 1].includes("completed")) {
+              return { data: { id: "purchase_already_processed", status: "completed" }, error: null };
+            }
+            return res;
+          };
+        }
+        return query;
+      }
+    });
+    
+    mockGetStripe.mockReturnValue({
+      refunds: { create: (...args: unknown[]) => mockStripeRefundsCreate(...args) },
+      webhooks: {
+        constructEvent: vi.fn(() => ({
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              metadata: { developer_id: "1", item_id: "consumable" },
+              payment_intent: "pi_already_processed",
+              amount_total: 100,
+              currency: "usd",
+            },
+          },
+        })),
+      },
+    });
+
+    const response = await POST(makeRequest(JSON.stringify({} as unknown)));
+    expect(response.status).toBe(200);
+    expect(mockStripeRefundsCreate).not.toHaveBeenCalled();
   });
 });
