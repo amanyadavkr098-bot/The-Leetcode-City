@@ -237,6 +237,26 @@ export async function POST(request: Request) {
             sendPurchaseNotification(Number(developerId), githubLogin ?? "", pending.id, itemId);
           }
         } else {
+          // Check if this txId already has a completed/delivered/processing purchase
+          const { data: alreadyProcessed, error: alreadyProcessedError } = await sb
+            .from("purchases")
+            .select("id, status")
+            .eq("provider_tx_id", txId)
+            .in("status", ["completed", "delivered", "processing"])
+            .maybeSingle();
+
+          if (alreadyProcessedError) {
+            throw new InfrastructureError(
+              `[Stripe webhook] failed to validate processed tx ${txId}: ${alreadyProcessedError.message}`,
+              alreadyProcessedError
+            );
+          }
+
+          if (alreadyProcessed) {
+            console.log(`[Stripe webhook] Purchase ${alreadyProcessed.id} already fulfilled — skipping duplicate webhook`);
+            break;
+          }
+
           console.error(`[Stripe webhook] Pending purchase not found for session ${session.id}. Cannot safely fulfill item ${itemId}. Issuing refund.`);
           if (paymentIntentId) {
             try {
