@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -23,14 +23,6 @@ interface LoadingScreenProps {
 }
 
 // ─── Constants ─────────────────────────────────────────────────
-
-const STAGE_MESSAGES: Record<string, string> = {
-  init: "Checking your browser...",
-  fetching: "Fetching developers...",
-  generating: "Laying down streets...",
-  rendering: "Building the skyline...",
-  ready: "Welcome to the city",
-};
 
 const TIPS = [
   "Click any building to see that dev's profile",
@@ -71,6 +63,7 @@ export default function LoadingScreen({
 }: LoadingScreenProps) {
   const [tipIndex, setTipIndex] = useState(0);
   const [fading, setFading] = useState(false);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
 
   // Rotate tips every 4s
   useEffect(() => {
@@ -87,23 +80,74 @@ export default function LoadingScreen({
     }
   }, [stage]);
 
+  // Scroll terminal to bottom when new lines appear
+  useEffect(() => {
+    terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [stage]);
+
   const handleTransitionEnd = useCallback(() => {
     if (fading) {
       onFadeComplete();
     }
   }, [fading, onFadeComplete]);
 
+  // Calculate terminal lines dynamically based on stage
+  const getTerminalLines = () => {
+    const lines: string[] = [
+      "$ git clone git@leetcode.city:world/bengaluru.git",
+      "Cloning into 'bengaluru'..."
+    ];
+
+    if (stage === "init") {
+      return lines;
+    }
+
+    lines.push("remote: Querying LeetCode developers: 100% (4,561/4,561), done.");
+    if (stage === "fetching") {
+      return lines;
+    }
+
+    lines.push("Receiving objects: 100% (8,429/8,429), 1.12 MiB | done.");
+    lines.push("Resolving streets: 100% (231/231), done.");
+    if (stage === "generating") {
+      return lines;
+    }
+
+    lines.push("Checking out the skyline... done.");
+    lines.push("$ cd bengaluru && npm run city");
+    if (stage === "rendering") {
+      return lines;
+    }
+
+    lines.push("Starting LeetCode City webserver...");
+    lines.push("Ready!");
+    return lines;
+  };
+
+  const lines = stage === "error" ? [
+    "$ git clone git@leetcode.city:world/bengaluru.git",
+    "Cloning into 'bengaluru'...",
+    `error: Failed to load city data: ${error || "Unknown Error"}`
+  ] : getTerminalLines();
+
   const isError = stage === "error";
-  const message = isError ? error : STAGE_MESSAGES[stage] ?? "";
+
+  // Build character-based progress bar
+  const blockCount = Math.floor(progress / 5);
+  const emptyCount = 20 - blockCount;
+  const progressStr = `[${"█".repeat(blockCount)}${"░".repeat(Math.max(0, emptyCount))}] ${Math.min(100, Math.floor(progress))}%`;
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0d0d0f] transition-opacity duration-[600ms] ${fading ? "opacity-0" : "opacity-100"
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#070709] transition-opacity duration-[600ms] ${fading ? "opacity-0" : "opacity-100"
         }`}
       onTransitionEnd={handleTransitionEnd}
     >
+      {/* CRT scanlines effect overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,6px_100%] opacity-15" />
+
       {/* Skyline silhouette */}
-      <div className="absolute bottom-0 left-0 right-0 h-[140px] overflow-hidden opacity-20">
+      <div className="absolute bottom-0 left-0 right-0 h-[140px] overflow-hidden opacity-10">
         {SKYLINE_BUILDINGS.map(([w, h, left], i) => (
           <div
             key={i}
@@ -113,7 +157,6 @@ export default function LoadingScreen({
               height: h,
               left: `${left}%`,
               backgroundColor: accentColor,
-              // Pixel-art stepped top
               clipPath:
                 i % 3 === 0
                   ? "polygon(0 8px, 30% 8px, 30% 0, 70% 0, 70% 8px, 100% 8px, 100% 100%, 0 100%)"
@@ -125,34 +168,61 @@ export default function LoadingScreen({
         ))}
       </div>
 
-      {/* Title */}
-      <h1
-        className="font-pixel text-3xl tracking-[0.2em] sm:text-4xl"
-        style={{ color: accentColor }}
+      {/* Retro CRT Terminal Window */}
+      <div 
+        className="w-[90%] max-w-2xl border-[3px] bg-[#0c0c0f]/90 p-4 font-mono text-xs shadow-2xl md:p-6 md:text-sm"
+        style={{ borderColor: accentColor }}
       >
-        LEETCODE CITY
-      </h1>
-
-      {/* Stage message */}
-      <p className="mt-4 font-pixel text-xs tracking-wider text-neutral-400 sm:text-sm">
-        {message}
-      </p>
-
-      {/* Progress bar (hidden on error) */}
-      {!isError && (
-        <div
-          className="mt-6 h-4 w-56 sm:w-72"
-          style={{ border: `3px solid ${accentColor}` }}
-        >
-          <div
-            className="h-full transition-[width] duration-300"
-            style={{
-              width: `${Math.min(100, progress)}%`,
-              backgroundColor: accentColor,
-            }}
-          />
+        {/* Terminal Header */}
+        <div className="mb-4 flex items-center justify-between border-b pb-2" style={{ borderColor: `${accentColor}33` }}>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-red-500/80" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
+            <span className="h-3 w-3 rounded-full bg-green-500/80" />
+          </div>
+          <span className="font-pixel text-[10px]" style={{ color: accentColor }}>
+            leetcode-city-terminal
+          </span>
         </div>
-      )}
+
+        {/* Terminal logs list */}
+        <div className="h-44 overflow-y-auto space-y-1.5 pr-2 select-none text-left">
+          {lines.map((line, idx) => {
+            const isCommand = line.startsWith("$");
+            const isErr = line.startsWith("error:");
+            return (
+              <div 
+                key={idx} 
+                style={{ 
+                  color: isErr ? "#ef4444" : isCommand ? accentColor : "#a3a3a3",
+                  fontWeight: isCommand ? "bold" : "normal"
+                }}
+              >
+                {line}
+              </div>
+            );
+          })}
+
+          {/* Typing/loading indicator cursor line */}
+          {!isError && stage !== "ready" && (
+            <div className="flex items-center gap-1" style={{ color: accentColor }}>
+              <span>Loading...</span>
+              <span className="h-4 w-2 animate-pulse bg-current" style={{ backgroundColor: accentColor }} />
+            </div>
+          )}
+
+          <div ref={terminalEndRef} />
+        </div>
+
+        {/* Retro progress bar inside terminal */}
+        {!isError && (
+          <div className="mt-4 border-t pt-3" style={{ borderColor: `${accentColor}22` }}>
+            <div className="font-mono text-[11px] md:text-xs" style={{ color: accentColor }}>
+              {progressStr}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Error retry */}
       {isError && (
@@ -167,10 +237,11 @@ export default function LoadingScreen({
 
       {/* Tips rotator */}
       {!isError && (
-        <p className="mt-8 max-w-xs text-center font-pixel text-[10px] leading-relaxed tracking-wide text-neutral-600 sm:text-xs">
-          {TIPS[tipIndex]}
+        <p className="mt-6 max-w-xs text-center font-pixel text-[9px] leading-relaxed tracking-wide text-neutral-500 sm:text-xs">
+          💡 Tip: {TIPS[tipIndex]}
         </p>
       )}
     </div>
   );
 }
+
