@@ -187,15 +187,24 @@ export async function POST(request: Request) {
 
         if (claimResult && claimResult.error_code === 'sold_out') {
           console.error(`[Stripe webhook] Item ${itemId} oversold. Issuing Stripe refund for ${txId}.`);
+          let refundSuccess = false;
           if (paymentIntentId) {
             try {
               await stripe.refunds.create({
                 payment_intent: paymentIntentId,
                 reason: "requested_by_customer",
               });
+              refundSuccess = true;
             } catch (refundError) {
               console.error("[Stripe webhook] Refund failed:", refundError);
             }
+          }
+          
+          if (claimResult.purchase_id) {
+            await sb.from("purchases").update({
+              status: refundSuccess ? "refunded" : "failed",
+              provider_tx_id: txId,
+            }).eq("id", claimResult.purchase_id).eq("status", "pending");
           }
           break;
         }

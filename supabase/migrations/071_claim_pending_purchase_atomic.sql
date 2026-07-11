@@ -34,6 +34,8 @@ BEGIN
     SELECT id INTO v_purchase_id
     FROM public.purchases
     WHERE id = p_purchase_id
+      AND developer_id = p_developer_id
+      AND item_id = p_item_id
       AND status = 'pending'
       AND provider = p_provider;
   ELSE
@@ -59,12 +61,6 @@ BEGIN
       AND status IN ('completed', 'delivered', 'processing');
 
     IF v_sold_count >= v_max_quantity THEN
-      -- Mark as failed_oversold so the webhook knows to refund
-      UPDATE public.purchases
-      SET status = 'refunded',
-          provider_tx_id = p_tx_id
-      WHERE id = v_purchase_id;
-
       RETURN QUERY SELECT false, 'sold_out'::TEXT, v_purchase_id;
       RETURN;
     END IF;
@@ -74,8 +70,19 @@ BEGIN
   UPDATE public.purchases
   SET status = 'processing',
       provider_tx_id = p_tx_id
-  WHERE id = v_purchase_id;
+  WHERE id = v_purchase_id
+    AND status = 'pending';
+
+  -- Ensure we actually claimed it (another transaction didn't claim it first)
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'already_claimed'::TEXT, v_purchase_id;
+    RETURN;
+  END IF;
 
   RETURN QUERY SELECT true, NULL::TEXT, v_purchase_id;
 END;
 $$;
+
+-- Restrict execution to service_role to prevent abuse by authenticated users
+REVOKE EXECUTE ON FUNCTION public.claim_pending_purchase_atomic FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claim_pending_purchase_atomic TO service_role;

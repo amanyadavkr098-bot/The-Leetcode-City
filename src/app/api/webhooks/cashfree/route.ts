@@ -200,6 +200,12 @@ export async function POST(request: Request) {
 
         if (claimResult && claimResult.error_code === 'sold_out') {
           console.error(`[Cashfree webhook] Item ${purchase.item_id} oversold. Manual refund required for ${orderId}.`);
+          if (claimResult.purchase_id) {
+            await sb.from("purchases").update({
+              status: "failed",
+              provider_tx_id: orderId,
+            }).eq("id", claimResult.purchase_id).eq("status", "pending");
+          }
           break;
         }
 
