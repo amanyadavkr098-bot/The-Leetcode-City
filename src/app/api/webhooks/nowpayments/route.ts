@@ -182,7 +182,7 @@ export async function POST(request: Request) {
           .from("purchases")
           .update({ status: newStatus })
           .eq("provider_tx_id", orderId)
-          .eq("status", "pending")
+          .in("status", ["pending", "completed", "delivered", "processing"])
           .eq("provider", "nowpayments");
         break;
       }
