@@ -4,6 +4,7 @@ import { useRef, useMemo, useEffect, memo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { CityBuilding } from "@/lib/github";
+import { DISTRICT_COLORS, DISTRICT_ORIGINS } from "@/lib/github";
 import type { BuildingColors } from "./CityCanvas";
 import { wasAdPointerConsumed } from "./SkyAds";
 
@@ -32,6 +33,7 @@ const vertexShader = /* glsl */ `
   varying vec4 vTint;
   varying float vLive;
   varying vec3 vLcStats;
+  varying vec3 vWorldPos;
 
   void main() {
     vUv = uv;
@@ -45,7 +47,10 @@ const vertexShader = /* glsl */ `
     vec3 localPos = position;
     localPos.y = localPos.y * aRise + (aRise - 1.0) * 0.5;
 
-    vec4 mvPos = modelViewMatrix * instanceMatrix * vec4(localPos, 1.0);
+    vec4 worldPos = instanceMatrix * vec4(localPos, 1.0);
+    vWorldPos = worldPos.xyz;
+
+    vec4 mvPos = modelViewMatrix * worldPos;
     vViewPos = mvPos.xyz;
     vInstanceId = float(gl_InstanceID);
 
@@ -67,6 +72,7 @@ const fragmentShader = /* glsl */ `
   uniform float uCityEnergy;
   uniform float uTimeOfDay; // 0.0 = Night, 1.0 = Day
   uniform float uSnowIntensity; // 0.0 to 1.0
+  uniform vec2 uCurrentOrigin;
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -77,6 +83,7 @@ const fragmentShader = /* glsl */ `
   varying vec4 vTint;
   varying float vLive;
   varying vec3 vLcStats;
+  varying vec3 vWorldPos;
 
   void main() {
     float fogDepth = length(vViewPos);
@@ -102,8 +109,8 @@ const fragmentShader = /* glsl */ `
     // Threshold needs headroom for sRGB-to-linear precision differences
     float preTintFace = step(length(wallColor - uFaceColor), 0.15);
 
-    if (vTint.a > 0.5) {
-      wallColor = mix(wallColor, vTint.rgb, preTintFace);
+    if (vTint.a > 0.01) {
+      wallColor = mix(wallColor, vTint.rgb, preTintFace * vTint.a);
     }
 
     // Exclude tinted face pixels from being treated as windows
@@ -148,6 +155,14 @@ const fragmentShader = /* glsl */ `
     vec3 roofFinal = uRoofColor * (ambientDay + 0.75 * uCityEnergy);
     vec3 snowColor = vec3(0.97, 0.98, 1.0);
     roofFinal = mix(roofFinal, snowColor * (ambientDay + 1.0), uSnowIntensity);
+
+    // Silhouette LOD handling for distant cities
+    float distToCurrent = distance(vWorldPos.xz, uCurrentOrigin);
+    if (distToCurrent > 1500.0) {
+      vec3 silhouetteColor = vec3(0.05, 0.06, 0.09);
+      wallFinal = mix(wallFinal, silhouetteColor, 0.88);
+      roofFinal = mix(roofFinal, silhouetteColor, 0.88);
+    }
 
     vec3 color = mix(wallFinal, roofFinal, isRoof);
 
@@ -275,6 +290,7 @@ export default memo(function InstancedBuildings({
         uCityEnergy: { value: cityEnergy },
         uTimeOfDay: { value: 1.0 },
         uSnowIntensity: { value: weatherMode === "snowy" ? 1.0 : 0.0 },
+        uCurrentOrigin: { value: new THREE.Vector2(0, 0) },
       },
       vertexShader,
       fragmentShader,
@@ -284,6 +300,17 @@ export default memo(function InstancedBuildings({
 
   // Update uniforms in-place when theme/atlas changes so the instancedMesh
   // is NOT recreated (which would lose all instance attributes).
+  const currentOrigin = useMemo(() => {
+    if (focusedBuilding) {
+      const b = buildings.find(x => x.login.toLowerCase() === focusedBuilding.toLowerCase());
+      if (b && b.district) {
+        const origin = DISTRICT_ORIGINS[b.district];
+        if (origin) return new THREE.Vector2(origin[0], origin[2]);
+      }
+    }
+    return new THREE.Vector2(0, 0);
+  }, [focusedBuilding, buildings]);
+
   useEffect(() => {
     material.uniforms.uAtlas.value = atlasTexture;
     material.uniforms.uRoofColor.value.set(colors.roof);
@@ -292,8 +319,9 @@ export default memo(function InstancedBuildings({
     material.uniforms.uDimEmissive.value = dimEmissive;
     material.uniforms.uCityEnergy.value = cityEnergy;
     material.uniforms.uSnowIntensity.value = weatherMode === "snowy" ? 1.0 : 0.0;
+    material.uniforms.uCurrentOrigin.value.copy(currentOrigin);
     material.needsUpdate = true;
-  }, [atlasTexture, colors.roof, colors.face, dimOpacity, dimEmissive, cityEnergy, weatherMode, material]);
+  }, [atlasTexture, colors.roof, colors.face, dimOpacity, dimEmissive, cityEnergy, weatherMode, currentOrigin, material]);
 
   const { uvFrontData, uvSideData, riseData, tintData, lcData } =
     useMemo(() => {
@@ -341,10 +369,12 @@ export default memo(function InstancedBuildings({
           tint[i * 4 + 2] = _c.b;
           tint[i * 4 + 3] = 1.0;
         } else {
-          tint[i * 4 + 0] = 0;
-          tint[i * 4 + 1] = 0;
-          tint[i * 4 + 2] = 0;
-          tint[i * 4 + 3] = 0;
+          const distColor = DISTRICT_COLORS[b.district ?? ""] || colors.face;
+          _c.set(distColor);
+          tint[i * 4 + 0] = _c.r;
+          tint[i * 4 + 1] = _c.g;
+          tint[i * 4 + 2] = _c.b;
+          tint[i * 4 + 3] = 0.18; // Subtle 18% city theme tint
         }
 
         lc[i * 3 + 0] = b.easy_solved || 0;
@@ -380,24 +410,20 @@ export default memo(function InstancedBuildings({
     }
     mesh.instanceMatrix.needsUpdate = true;
 
-    let maxDist = 0;
+    const box = new THREE.Box3();
+    const vec = new THREE.Vector3();
     let maxHeight = 0;
     for (let i = 0; i < count; i++) {
       const b = buildings[i];
-      const d = Math.sqrt(
-        b.position[0] * b.position[0] + b.position[2] * b.position[2],
-      );
-      if (d > maxDist) maxDist = d;
+      vec.set(b.position[0], b.height / 2, b.position[2]);
+      box.expandByPoint(vec);
       if (b.height > maxHeight) maxHeight = b.height;
     }
-    const radius = Math.sqrt(maxDist * maxDist + maxHeight * maxHeight) + 100;
-    
-    // FIX: Increased bounding sphere radius by 50% to prevent buildings from being culled during fast camera movement
-    const expandedRadius = radius * 1.5;
-    mesh.boundingSphere = new THREE.Sphere(
-      new THREE.Vector3(0, maxHeight / 2, 0),
-      expandedRadius,
-    );
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+    // Add generous padding for building physical dimensions (width/depth)
+    sphere.radius += (maxHeight / 2) + 250;
+    mesh.boundingSphere = sphere;
     mesh.boundingBox = null;
 
     const uvFrontAttr = new THREE.InstancedBufferAttribute(uvFrontData, 4);
@@ -702,7 +728,7 @@ export default memo(function InstancedBuildings({
     <instancedMesh
       ref={meshRef}
       args={[geo, material, count]}
-      frustumCulled={false}
+      frustumCulled={true}
       receiveShadow={false}
       castShadow={false}
     />

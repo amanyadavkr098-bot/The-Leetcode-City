@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
-import { fulfillItemPurchase } from "@/lib/items";
+
+type FinalizePointsPurchaseResult = {
+    ok: boolean;
+    error_code: string | null;
+    points_remaining: number | null;
+};
 
 /**
  * @param {import('next/server').NextRequest} request
@@ -94,7 +99,7 @@ export async function POST(request: Request) {
 
     const isDev = ["ishant_27", "ixotic", "ixotic27"].includes(dev.github_login.toLowerCase()) && dev_mode === true;
 
-    let deductedPoints = dev.points ?? 0;
+    const deductedPoints = dev.points ?? 0;
 
     // 3. Check points balance (early check, race condition handled by atomic RPC later)
     if (!isDev && (dev.points ?? 0) < item.price_points) {
@@ -132,53 +137,43 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to record purchase" }, { status: 500 });
     }
 
-    // 5. Deduct points atomically — rollback by deleting the pending record on failure
-    if (!isDev) {
-        const { data: deducted, error: deductError } = await admin
-            .rpc("deduct_points_atomic", {
-                p_developer_id: dev.id,
-                p_price_points: item.price_points,
-            })
-            .select("success, remaining_points")
-            .maybeSingle();
+    // 5. Finalize the points purchase atomically:
+    //    deduction, item fulfillment, purchase completion, and feed insertion
+    //    must all succeed together.
+    const { data, error: finalizeError } = await admin
+        .rpc("finalize_points_purchase", {
+            p_purchase_id: purchase.id,
+            p_developer_id: dev.id,
+            p_item_id: item_id,
+            p_price_points: item.price_points,
+            p_is_dev: isDev,
+            p_github_login: dev.github_login,
+        })
+        .single();
 
-        if (deductError || !deducted?.success) {
-            await admin.from("purchases").delete().eq("id", purchase.id);
+    const finalizeResult = data as FinalizePointsPurchaseResult | null;
+
+    if (finalizeError) {
+        await admin.from("purchases").delete().eq("id", purchase.id);
+        console.error("[buy-with-points] finalize_points_purchase failed:", finalizeError);
+        return NextResponse.json({ error: "Failed to complete purchase" }, { status: 500 });
+    }
+
+    if (finalizeResult === null) {
+        await admin.from("purchases").delete().eq("id", purchase.id);
+        return NextResponse.json({ error: "Failed to complete purchase" }, { status: 500 });
+    }
+
+    if (!finalizeResult.ok) {
+        await admin.from("purchases").delete().eq("id", purchase.id);
+        if (finalizeResult.error_code === "not_enough_points") {
             return NextResponse.json({ error: "Not enough points or a concurrent purchase already deducted your balance. Please try again." }, { status: 409 });
         }
-        deductedPoints = deducted.remaining_points;
-    }
-
-    // 6. Fulfill/grant item only after points are secured
-    let finalStatus: string;
-    try {
-        const { status: purchaseStatus } = await fulfillItemPurchase(dev.id, item_id, admin);
-        finalStatus = purchaseStatus;
-    } catch (fulfillErr) {
-        // Points were deducted — restore them before returning the error
-        if (!isDev) {
-            await admin.rpc("add_points_atomic", {
-                p_developer_id: dev.id,
-                p_price_points: item.price_points,
-            });
+        if (finalizeResult.error_code === "grant_failed") {
+            return NextResponse.json({ error: "Failed to grant item" }, { status: 500 });
         }
-        await admin.from("purchases").delete().eq("id", purchase.id);
-        console.error("[buy-with-points] fulfillItemPurchase failed:", fulfillErr);
-        return NextResponse.json({ error: "Failed to grant item" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to complete purchase" }, { status: 500 });
     }
 
-    // 7. Mark purchase completed now that item is in hand
-    await admin
-        .from("purchases")
-        .update({ status: finalStatus })
-        .eq("id", purchase.id);
-
-    // Insert activity feed
-    await admin.from("activity_feed").insert({
-        event_type: "item_purchased",
-        actor_id: dev.id,
-        metadata: { login: dev.github_login, item_id, provider: "points" },
-    });
-
-    return NextResponse.json({ ok: true, points_remaining: deductedPoints });
+    return NextResponse.json({ ok: true, points_remaining: finalizeResult.points_remaining });
 }

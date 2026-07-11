@@ -37,6 +37,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config: any) => {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...(config.resolve.alias as Record<string, string | false>),
+      "pino-pretty": false,
+      "@react-native-async-storage/async-storage": false,
+      "accounts": false,
+      "@metamask/connect-evm": false,
+      "porto": false,
+      "porto/internal": false,
+      "@walletconnect/ethereum-provider": false,
+    };
+    return config;
+  },
   async headers() {
     return [
       {

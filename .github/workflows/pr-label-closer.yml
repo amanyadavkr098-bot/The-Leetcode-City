@@ -105,6 +105,16 @@ jobs:
                   core.info(`Unassigned ${assignees.join(', ')} from issue #${issueNumber}`);
                 }
 
+                // Unlock the conversation
+                try {
+                  await github.rest.issues.unlock({
+                    owner, repo, issue_number: issueNumber
+                  });
+                  core.info(`Unlocked conversation for issue #${issueNumber}`);
+                } catch (unlockErr) {
+                  core.warning(`Could not unlock issue #${issueNumber}: ${unlockErr.message}`);
+                }
+
                 // Reopen the issue
                 await github.rest.issues.update({
                   owner, repo, issue_number: issueNumber,
@@ -114,7 +124,7 @@ jobs:
                 // Post a generic comment explaining why it was reopened
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issueNumber,
-                  body: `🔄 **This issue has been reopened and unassigned.**\n\nThe associated PR #${prNumber} by @${prAuthor} was closed for failing to follow proper contribution rules.\n\nThis issue is now back in the pool and open for other contributors to claim! Please ensure you read and follow the project guidelines before working on this. 🚀`
+                  body: `🔄 **This issue has been reopened, unassigned, and unlocked.**\n\nThe associated PR #${prNumber} by @${prAuthor} was closed for failing to follow proper contribution rules.\n\nThis issue is now back in the pool and open for other contributors to claim! Please ensure you read and follow the project guidelines before working on this. 🚀`
                 });
 
                 core.info(`Reopened linked issue #${issueNumber} and commented.`);

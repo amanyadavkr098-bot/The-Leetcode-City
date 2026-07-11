@@ -225,6 +225,59 @@ export async function getOwnedItemsForDevelopers(
  * Handles consumables (adds them to inventory/counters and returns 'delivered' to bypass unique index constraints).
  * Returns the final status to use for the purchases table.
  */
+export interface AtomicCheckoutPurchaseArgs {
+  developerId: number;
+  recipientId: number;
+  itemId: string;
+  provider: string;
+  idempotencyKey: string;
+  amountCents: number;
+  currency: string;
+  giftedTo?: number | null;
+  supabaseClient?: SupabaseClient;
+}
+
+export async function createAtomicCheckoutPurchase({
+  developerId,
+  recipientId,
+  itemId,
+  provider,
+  idempotencyKey,
+  amountCents,
+  currency,
+  giftedTo = null,
+  supabaseClient,
+}: AtomicCheckoutPurchaseArgs): Promise<{ purchaseId: string }> {
+  const sb = supabaseClient || getSupabaseAdmin();
+
+  const { data, error } = await sb.rpc("create_checkout_purchase_and_fulfill", {
+    p_developer_id: developerId,
+    p_recipient_id: recipientId,
+    p_item_id: itemId,
+    p_provider: provider,
+    p_idempotency_key: idempotencyKey,
+    p_amount_cents: amountCents,
+    p_currency: currency,
+    p_gifted_to: giftedTo,
+  });
+
+  if (error) {
+    throw new InfrastructureError(
+      `[createAtomicCheckoutPurchase] RPC failed: ${error.message}`,
+      error
+    );
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.purchase_id) {
+    throw new InfrastructureError("[createAtomicCheckoutPurchase] Missing purchase_id from RPC response");
+  }
+
+  return {
+    purchaseId: String(row.purchase_id),
+  };
+}
+
 export async function fulfillItemPurchase(
    developerId: number,
    itemId: string,

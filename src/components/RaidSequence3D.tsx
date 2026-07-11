@@ -7,6 +7,7 @@ import type { RaidPhase } from "@/lib/useRaidSequence";
 import type { RaidExecuteResponse } from "@/lib/raid";
 import type { CityBuilding } from "@/lib/github";
 import { playRaidSound } from "@/lib/raidAudio";
+import { DamageCracks } from "./BuildingEffects";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -37,9 +38,14 @@ const TANK_FIRE_DELAY = 0.45;
 const TANK_FIRE_INTERVAL = 0.65;
 const TANK_FIRE_FLASH_DURATION = 0.16;
 
-// Ground vehicle constants
+// Ground vehicle constants and configs
+// GROUND_FIRE_OFFSET determines the distance from the target building where the ground vehicle (tank) stops to fire.
 const GROUND_FIRE_OFFSET = 85;
+
+// Set of all vehicle types that should behave as ground vehicles instead of taking the orbital flight path.
 const GROUND_VEHICLES = new Set(["vehicle_tank"]);
+
+// Helper utility to detect if a specific vehicle type is registered as a ground vehicle.
 const isGroundVehicle = (type: string) => GROUND_VEHICLES.has(type);
 
 // ─── Easing ───────────────────────────────────────────────────
@@ -449,10 +455,14 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
     attackElapsedRef.current = isAttacking ? attackElapsedRef.current + delta : 0;
 
     if (turretRef.current && tankRef.current && targetPos) {
+      // Force update world matrices to make sure worldToLocal coordinates are precise
+      tankRef.current.updateMatrixWorld(true);
+      
       _localTarget.copy(targetPos);
       tankRef.current.worldToLocal(_localTarget);
 
-      const targetYaw = Math.atan2(_localTarget.x, _localTarget.z + 0.2);
+      // Facing -Z yaw target angle calculation relative to turret offset (0.2 z)
+      const targetYaw = Math.atan2(-_localTarget.x, -(_localTarget.z - 0.2));
       turretRef.current.rotation.y = THREE.MathUtils.lerp(
         turretRef.current.rotation.y,
         targetYaw,
@@ -462,7 +472,8 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
 
     const firePulse = isAttacking ? getTankFirePulse(attackElapsedRef.current) : 0;
     if (cannonRef.current) {
-      cannonRef.current.position.z = -firePulse * 0.35;
+      // Since cannon points along -Z, recoil slides it in the +Z direction
+      cannonRef.current.position.z = firePulse * 0.35;
     }
 
     if (muzzleFlashRef.current) {
@@ -480,30 +491,30 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
         <meshStandardMaterial color="#4b5320" emissive="#2c3012" emissiveIntensity={0.2} />
       </mesh>
       {/* Rotating Turret */}
-      <group ref={turretRef} position={[0, 0.45, -0.2]}>
+      <group ref={turretRef} position={[0, 0.45, 0.2]}>
         {/* Turret Structure */}
         <mesh>
           <cylinderGeometry args={[0.5, 0.6, 0.4, 8]} />
           <meshStandardMaterial color="#3a4018" />
         </mesh>
         <group ref={cannonRef}>
-          {/* Main Cannon */}
-          <mesh position={[0, 0, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
+          {/* Main Cannon (facing -Z) */}
+          <mesh position={[0, 0, -1.4]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.08, 0.12, 1.8, 8]} />
             <meshStandardMaterial color="#222" />
           </mesh>
           {/* Cannon Muzzle Brake */}
-          <mesh position={[0, 0, 2.3]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[0, 0, -2.3]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} />
             <meshStandardMaterial color="#111" />
           </mesh>
           {/* Muzzle flash */}
-          <group ref={muzzleFlashRef} position={[0, 0, 2.55]} visible={false}>
+          <group ref={muzzleFlashRef} position={[0, 0, -2.55]}>
             <mesh>
               <sphereGeometry args={[0.32, 8, 8]} />
               <meshBasicMaterial color="#fff3a3" transparent opacity={0.9} depthWrite={false} />
             </mesh>
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <coneGeometry args={[0.45, 0.9, 8]} />
               <meshBasicMaterial color="#ff7a18" transparent opacity={0.75} depthWrite={false} />
             </mesh>
@@ -546,17 +557,17 @@ function TankMesh({ isAttacking = false, targetPos }: { isAttacking?: boolean; t
           </mesh>
         ))}
       </group>
-      {/* Headlights */}
-      <mesh position={[-0.6, 0.1, 1.26]}>
+      {/* Headlights (facing -Z) */}
+      <mesh position={[-0.6, 0.1, -1.26]}>
         <boxGeometry args={[0.2, 0.1, 0.1]} />
         <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} toneMapped={false} />
       </mesh>
-      <mesh position={[0.6, 0.1, 1.26]}>
+      <mesh position={[0.6, 0.1, -1.26]}>
         <boxGeometry args={[0.2, 0.1, 0.1]} />
         <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} toneMapped={false} />
       </mesh>
-      <pointLight position={[-0.6, 0.1, 1.5]} color="#ffaa00" intensity={1} distance={3} />
-      <pointLight position={[0.6, 0.1, 1.5]} color="#ffaa00" intensity={1} distance={3} />
+      <pointLight position={[-0.6, 0.1, -1.5]} color="#ffaa00" intensity={1} distance={3} />
+      <pointLight position={[0.6, 0.1, -1.5]} color="#ffaa00" intensity={1} distance={3} />
     </group>
   );
 }
@@ -931,7 +942,7 @@ function ProjectilePool({
   active: boolean;
   vehicleRef: React.RefObject<THREE.Group | null>;
   targetPos: THREE.Vector3;
-  onImpact: () => void;
+  onImpact: (pos: THREE.Vector3) => void;
   origin?: "vehicle" | "tank_cannon";
   isDrone?: boolean;
   vehicleType?: string;
@@ -1074,8 +1085,8 @@ function ProjectilePool({
         impactCount.current++;
         if (impactCount.current % 2 === 0) playRaidSound("impact");
         // This triggers the screen shake on every projectile impact
-        onImpact();
-        if (impactCount.current >= projectileCount * 0.8) onImpact();
+        onImpact(p.pos.clone());
+        if (impactCount.current >= projectileCount * 0.8) onImpact(p.pos.clone());
         setExplosions((prev) => [
           ...prev,
           {
@@ -1299,6 +1310,8 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
   // Camera shake state (sine-based)
   const shakeRef = useRef({ intensity: 0, elapsed: 0 });
 
+  const [damageImpacts, setDamageImpacts] = useState<THREE.Vector3[]>([]);
+
   const flightProgress = useRef(0);
   const soundPlayed = useRef(false);
   const climaxTriggered = useRef(false);
@@ -1413,6 +1426,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
   const isGround = useMemo(() => isGroundVehicle(vehicleType), [vehicleType]);
 
   // Ground vehicle positions: start at attacker ground level, drive to defender
+  // groundStartPos: The coordinates where the tank spawns on the ground (concrete walkway Y = 0.35).
   const groundStartPos = useMemo(() => {
     return new THREE.Vector3(
       attackerPos.x,
@@ -1421,6 +1435,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [attackerPos]);
 
+  // groundFirePos: The final stationary firing point on the ground level, positioned a offset distance away from the defender.
   const groundFirePos = useMemo(() => {
     // Fire position: on the ground, GROUND_FIRE_OFFSET away from defender
     return new THREE.Vector3(
@@ -1430,6 +1445,7 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [defenderTopPos, flightDir]);
 
+  // groundDriveEndPos: The target point for the intro driving phase (8 units forward from the spawn point).
   const groundDriveEndPos = useMemo(() => {
     // Where the intro drive-forward ends (ground level, 8 units forward)
     return new THREE.Vector3(
@@ -1439,7 +1455,8 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
     );
   }, [attackerPos, flightDir]);
 
-  // Ground flight curve: straight line on the ground with slight approach curve
+  // groundFlightCurve: Generates a 3D path curve for the cruise/flight phase.
+  // Instead of a straight line, it interpolates with a sideways offset (S-Curve) at ground level.
   const groundFlightCurve = useMemo(() => {
     const mid = new THREE.Vector3().lerpVectors(groundDriveEndPos, groundFirePos, 0.5);
     mid.y = 0.35; // flat on walkway ground level
@@ -1482,6 +1499,9 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
         debrisActive.current = false;
         shockwaveActive.current = false;
       }
+      if (phase === "idle" || phase === "preview" || phase === "intro") {
+        setDamageImpacts([]);
+      }
     }
   }, [phase]);
 
@@ -1508,25 +1528,6 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
         phase === "share"
       );
       vehicleRef.current.visible = !shouldHideRocket;
-    }
-
-    // ── Camera Shake: sine oscillation with exponential decay ──
-    const s = shakeRef.current;
-    if (s.intensity > 0.01) {
-      s.elapsed += delta;
-      const decay = Math.exp(-s.elapsed * 5);
-      camera.position.set(
-        camera.position.x + Math.sin(s.elapsed * 25) * s.intensity * decay,
-        camera.position.y + Math.cos(s.elapsed * 30) * s.intensity * 0.6 * decay,
-        camera.position.z,
-      );
-      camera.rotation.set(
-        camera.rotation.x,
-        camera.rotation.y,
-        camera.rotation.z + Math.sin(s.elapsed * 20) * s.intensity * 0.012 * decay,
-      );
-
-      if (decay < 0.01) s.intensity = 0;
     }
 
     // ── Decay hit intensity ──
@@ -2149,6 +2150,25 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
       default:
         break;
     }
+
+    // Apply camera shake at the very end of useFrame so it isn't overridden by camera positioning
+    const s = shakeRef.current;
+    if (s.intensity > 0.01) {
+      s.elapsed += delta;
+      const decay = Math.exp(-s.elapsed * 5);
+      camera.position.set(
+        camera.position.x + Math.sin(s.elapsed * 25) * s.intensity * decay,
+        camera.position.y + Math.cos(s.elapsed * 30) * s.intensity * 0.6 * decay,
+        camera.position.z,
+      );
+      camera.rotation.set(
+        camera.rotation.x,
+        camera.rotation.y,
+        camera.rotation.z + Math.sin(s.elapsed * 20) * s.intensity * 0.012 * decay,
+      );
+
+      if (decay < 0.01) s.intensity = 0;
+    }
   });
 
   if (phase === "idle" || phase === "preview" || phase === "done") return null;
@@ -2201,11 +2221,22 @@ export default function RaidSequence3D({ phase, attacker, defender, raidData, on
         isDrone={vehicleType === "raid_drone"}
         vehicleType={vehicleType}
         flightDir={flightDir}
-        onImpact={() => {
+        onImpact={(pos) => {
           triggerShake(0.8);
           hitIntensityRef.current = 0.5;
+          setDamageImpacts((prev) => [...prev, pos]);
         }}
       />
+
+      {/* Damage cracks/marks on target building */}
+      {defender && (
+        <DamageCracks
+          width={defender.width}
+          height={defender.height}
+          depth={defender.depth}
+          impacts={damageImpacts}
+        />
+      )}
 
       {/* Shield dome */}
       <ShieldDome
@@ -2366,19 +2397,32 @@ interface ExplosionParticlesProps {
 
 function ExplosionParticles({ position, isDrone = false, onComplete }: ExplosionParticlesProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const startTime = useRef(Date.now());
-  const particleCount = 15;
+  const fireballRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  const startTime = useRef<number>(0);
+  const particleCount = 30;
 
-  // Generate directions and scales for our 3D debris cubes
-  const [velocities, matrices] = useMemo(() => {
+  const velocities = useRef<THREE.Vector3[]>([]);
+  const matrices = useRef<THREE.Matrix4[]>([]);
+  const baseScales = useRef<number[]>([]);
+  const colors = useRef<THREE.Color[]>([]);
+
+  useEffect(() => {
+    startTime.current = Date.now();
+
     const vels: THREE.Vector3[] = [];
     const mats: THREE.Matrix4[] = [];
+    const scales: number[] = [];
+    const cols: THREE.Color[] = [];
     
+    const palette = isDrone 
+      ? ["#00ffff", "#00bcff", "#0066ff", "#333333"] 
+      : ["#ffaa00", "#ff4400", "#ff1100", "#ffffff", "#444444"];
+
     for (let i = 0; i < particleCount; i++) {
-      // Burst outward uniformly
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos((Math.random() * 2) - 1);
-      const speed = 6 + Math.random() * 12;
+      const speed = 8 + Math.random() * 16;
 
       vels.push(new THREE.Vector3(
         Math.sin(phi) * Math.cos(theta) * speed,
@@ -2386,52 +2430,101 @@ function ExplosionParticles({ position, isDrone = false, onComplete }: Explosion
         Math.cos(phi) * speed
       ));
 
-      // Create a transformation matrix for each cube particle
       const matrix = new THREE.Matrix4();
-      const scale = 0.3 + Math.random() * 0.5; // Random particle size
+      const scale = 0.25 + Math.random() * 0.45;
       matrix.makeScale(scale, scale, scale);
       mats.push(matrix);
+      scales.push(scale);
+
+      const colHex = palette[Math.floor(Math.random() * palette.length)];
+      cols.push(new THREE.Color(colHex));
     }
-    return [vels, mats];
-  }, []);
+
+    velocities.current = vels;
+    matrices.current = mats;
+    baseScales.current = scales;
+    colors.current = cols;
+
+    if (meshRef.current) {
+      for (let i = 0; i < particleCount; i++) {
+        meshRef.current.setColorAt(i, cols[i]);
+      }
+      meshRef.current.instanceColor!.needsUpdate = true;
+    }
+  }, [isDrone]);
 
   useFrame((_, delta) => {
-    if (!meshRef.current) return;
-
+    if (startTime.current === 0) return;
     const elapsed = Date.now() - startTime.current;
+    const progress = Math.min(elapsed / 600, 1); // 600ms animation duration
 
-    // Fade out and move particles over time
-    for (let i = 0; i < particleCount; i++) {
-      const mat = matrices[i];
-      const vel = velocities[i];
-      
-      // Extract position from matrix, add velocity, and update matrix
-      const pos = new THREE.Vector3().setFromMatrixPosition(mat);
-      pos.addScaledVector(vel, delta);
-      
-      // Apply deceleration/gravity slightly
-      vel.y -= 5 * delta;
+    // 1. Update debris particles (move and shrink)
+    if (meshRef.current && velocities.current.length > 0) {
+      for (let i = 0; i < particleCount; i++) {
+        const mat = matrices.current[i];
+        const vel = velocities.current[i];
+        const baseScale = baseScales.current[i];
+        
+        // Extract position from matrix, add velocity, and update matrix
+        const pos = new THREE.Vector3().setFromMatrixPosition(mat);
+        pos.addScaledVector(vel, delta);
+        
+        // Apply deceleration/gravity
+        vel.y -= 8 * delta;
+        vel.multiplyScalar(0.98);
 
-      // Rebuild the matrix with new position
-      mat.setPosition(pos);
-      meshRef.current.setMatrixAt(i, mat);
+        // Rebuild the matrix with new position and shrinking scale
+        const currentScale = baseScale * (1 - progress);
+        mat.makeTranslation(pos.x, pos.y, pos.z);
+        mat.scale(new THREE.Vector3(currentScale, currentScale, currentScale));
+        
+        meshRef.current.setMatrixAt(i, mat);
+      }
+      meshRef.current.instanceMatrix.needsUpdate = true;
     }
-    meshRef.current.instanceMatrix.needsUpdate = true;
 
-    // Remove the explosion from memory after 0.5 seconds
-    if (elapsed > 500) {
+    // 2. Animate central fireball
+    if (fireballRef.current) {
+      const fireballScale = 1 + progress * 6; // expands from 1 to 7
+      fireballRef.current.scale.setScalar(fireballScale);
+      const mat = fireballRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = (1 - progress) * 0.7; // fades out
+    }
+
+    // 3. Animate dynamic point light flash
+    if (lightRef.current) {
+      lightRef.current.intensity = (isDrone ? 12 : 18) * (1 - progress);
+    }
+
+    // Remove the explosion from memory after 0.6 seconds
+    if (elapsed > 600) {
       onComplete();
     }
   });
 
   return (
     <group position={position}>
+      {/* Dynamic Flash Light */}
+      <pointLight ref={lightRef} color={isDrone ? "#00f5ff" : "#ff7700"} distance={25} intensity={15} />
+
+      {/* Central Expanding Fireball Sphere */}
+      <mesh ref={fireballRef}>
+        <sphereGeometry args={[1, 12, 12]} />
+        <meshBasicMaterial 
+          color={isDrone ? "#00ffff" : "#ff5500"} 
+          transparent 
+          opacity={0.7} 
+          blending={THREE.AdditiveBlending} 
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Debris particles */}
       <instancedMesh ref={meshRef} args={[undefined, undefined, particleCount]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial 
-          color={isDrone ? "#00e5ff" : "#ff4400"} 
           emissive={isDrone ? "#0066ff" : "#ff1100"} 
-          emissiveIntensity={3} 
+          emissiveIntensity={4} 
           toneMapped={false} 
         />
       </instancedMesh>

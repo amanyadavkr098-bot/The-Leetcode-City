@@ -257,15 +257,30 @@ jobs:
                 return;
               }
 
-              await github.rest.pulls.createReview({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-                event: 'APPROVE',
-                body: `✅ **LGTM!** All CI checks have passed. Code review approved.\n\nThank you for your contribution @${prAuthor}! 🚀`
-              });
-
-              console.log(`Successfully approved PR #${prNumber}!`);
+              try {
+                await github.rest.pulls.createReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                  event: 'APPROVE',
+                  body: `✅ **LGTM!** All CI checks have passed. Code review approved.\n\nThank you for your contribution @${prAuthor}! 🚀`
+                });
+                console.log(`Successfully approved PR #${prNumber}!`);
+              } catch (reviewErr) {
+                console.warn(`Failed to approve PR #${prNumber} directly. Falling back to comment. Error:`, reviewErr.message);
+                try {
+                  await github.rest.pulls.createReview({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                    event: 'COMMENT',
+                    body: `⚠️ **Approval Fallback (Actions Permission Restriction):**\n\n✅ **LGTM!** All CI checks have passed. Code review approved.\n\nThank you for your contribution @${prAuthor}! 🚀`
+                  });
+                  console.log(`Successfully posted fallback comment for PR #${prNumber}!`);
+                } catch (commentErr) {
+                  console.error("Failed to post fallback review comment:", commentErr.message);
+                }
+              }
 
               // ── GSSoC Label Gate: validate labels before merge ──
               const { data: prLabels } = await github.rest.issues.listLabelsOnIssue({

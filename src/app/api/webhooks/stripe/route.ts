@@ -38,20 +38,35 @@ export async function POST(request: Request) {
 
   const sb = getSupabaseAdmin();
 
-  // ─── Idempotency Check ───
-  // Attempt to log the event ID. If it already exists, this is a duplicate delivery.
-  const { error: idempotencyError } = await sb
+  const { data: processedEvent, error: processedEventError } = await sb
     .from("stripe_processed_events")
-    .insert({ id: event.id });
+    .select("id")
+    .eq("id", event.id)
+    .maybeSingle();
 
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      // 23505 = unique_violation (event already processed)
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    // For other transient DB errors, return 500 so Stripe retries
-    console.error("Stripe idempotency check failed:", idempotencyError);
+  if (processedEventError) {
+    console.error("Stripe idempotency lookup failed:", processedEventError);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+
+  if (processedEvent) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  async function finalizeStripeEvent() {
+    const { error: finalError } = await sb
+      .from("stripe_processed_events")
+      .insert({ id: event.id });
+
+    if (!finalError) {
+      return;
+    }
+
+    if (finalError.code === "23505") {
+      return;
+    }
+
+    throw finalError;
   }
 
   try {
@@ -154,7 +169,7 @@ export async function POST(request: Request) {
         const txId = paymentIntentId ?? session.id;
 
         // Atomically claim the pending purchase — only succeeds if still pending
-        const { data: pending } = await sb
+        const { data: pending, error: pendingError } = await sb
           .from("purchases")
           .update({
             status: "processing",
@@ -166,6 +181,13 @@ export async function POST(request: Request) {
           .eq("provider", "stripe")
           .select()
           .maybeSingle();
+
+        if (pendingError) {
+          throw new InfrastructureError(
+            `[Stripe webhook] Failed to claim pending purchase ${txId}: ${pendingError.message}`,
+            pendingError
+          );
+        }
 
         if (pending) {
           const giftedTo = session.metadata?.gifted_to;
@@ -238,12 +260,18 @@ export async function POST(request: Request) {
           }
 
           // Check if this txId already has a completed/delivered purchase
-          const { data: alreadyProcessed } = await sb
+          const { data: alreadyProcessed, error: alreadyProcessedError } = await sb
             .from("purchases")
             .select("id, status")
             .eq("provider_tx_id", txId)
             .in("status", ["completed", "delivered"])
             .maybeSingle();
+          if (alreadyProcessedError) {
+            throw new InfrastructureError(
+              `[Stripe webhook] failed to validate processed tx ${txId}: ${alreadyProcessedError.message}`,
+              alreadyProcessedError
+            );
+          }
           if (alreadyProcessed) {
             console.log(`Purchase ${alreadyProcessed.id} already fulfilled — skipping duplicate webhook`);
             break;
@@ -251,7 +279,7 @@ export async function POST(request: Request) {
 
           // Use the UNIQUE constraint on provider_tx_id to guard against
           // concurrent insert — only the first webhook wins
-          const { data: inserted } = await sb
+          const { data: inserted, error: insertError } = await sb
             .from("purchases")
             .insert({
               developer_id: Number(developerId),
@@ -266,6 +294,12 @@ export async function POST(request: Request) {
             })
             .select("id")
             .maybeSingle();
+          if (insertError && insertError.code !== "23505") {
+            throw new InfrastructureError(
+              `[Stripe webhook] Failed to insert purchase for tx ${txId}: ${insertError.message}`,
+              insertError
+            );
+          }
 
           if (inserted) {
             const { status: purchaseStatus } = await fulfillItemPurchase(ownerId, itemId, sb);
@@ -332,6 +366,21 @@ export async function POST(request: Request) {
     }
     // BusinessLogicError or unknown — return 200 to prevent futile retries
     console.error("[Stripe webhook] Business logic or unexpected error:", err);
+    try {
+      await finalizeStripeEvent();
+    } catch (finalizationError) {
+      console.error("Stripe idempotency finalization failed after business error:", finalizationError);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
+  try {
+    await finalizeStripeEvent();
+  } catch (finalizationError) {
+    console.error("Stripe idempotency finalization failed:", finalizationError);
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

@@ -77,6 +77,73 @@ jobs:
                   body: `🤖 Hey @${pr.user.login}, this pull request has been automatically closed because it has been inactive for 5 days.\n\nIf you are still interested in fixing the issue and contributing, please feel free to pull the latest changes, resolve any conflicts, and reopen this PR at any time! We'd love to review your work. Thank you! ❤️`,
                 });
 
+                // Parse linked issues from the PR description
+                const cleanBody = (pr.body ?? '').replace(/<!--[\s\S]*?-->/g, '');
+                const BLOCK_REGEX = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?:\s*(?:and|,)?\s*#\d+)+/gi;
+                const issueNumbers = [];
+                let blockMatch;
+                while ((blockMatch = BLOCK_REGEX.exec(cleanBody)) !== null) {
+                  const numRegex = /#(\d+)/g;
+                  let numMatch;
+                  while ((numMatch = numRegex.exec(blockMatch[0])) !== null) {
+                    issueNumbers.push(parseInt(numMatch[1], 10));
+                  }
+                }
+                const uniqueIssueNumbers = [...new Set(issueNumbers)];
+
+                for (const issueNumber of uniqueIssueNumbers) {
+                  try {
+                    // Fetch issue details
+                    const { data: issueData } = await github.rest.issues.get({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber
+                    });
+
+                    // 1. Unassign
+                    const assignees = issueData.assignees.map(a => a.login);
+                    if (assignees.length > 0) {
+                      await github.rest.issues.removeAssignees({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: issueNumber,
+                        assignees
+                      });
+                      core.info(`Unassigned ${assignees.join(', ')} from issue #${issueNumber}`);
+                    }
+
+                    // 2. Unlock
+                    if (issueData.locked) {
+                      await github.rest.issues.unlock({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: issueNumber
+                      });
+                      core.info(`Unlocked conversation for issue #${issueNumber}`);
+                    }
+
+                    // 3. Reopen
+                    await github.rest.issues.update({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      state: 'open'
+                    });
+
+                    // 4. Comment on the issue
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      body: `🔄 **This issue has been reopened, unassigned, and unlocked.**\n\nThe associated Pull Request #${pr.number} by @${pr.user.login} was closed due to inactivity.\n\n🟢 **This issue is now available for other contributors!** If you'd like to work on it, comment below and you'll be assigned. 🚀`
+                    });
+                    
+                    core.info(`Successfully updated linked issue #${issueNumber} for inactive PR #${pr.number}`);
+                  } catch (issueErr) {
+                    core.error(`Failed to update linked issue #${issueNumber}: ${issueErr.message}`);
+                  }
+                }
+
                 // 3. Close the PR
                 await github.rest.pulls.update({
                   owner: context.repo.owner,

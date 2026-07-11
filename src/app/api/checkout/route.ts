@@ -7,7 +7,7 @@ import { createCryptoInvoice } from "@/lib/nowpayments";
 import { createCashfreeCheckout } from "@/lib/cashfree";
 import { rateLimit } from "@/lib/rate-limit";
 
-import { fulfillItemPurchase, autoEquipIfSolo } from "@/lib/items";
+import { createAtomicCheckoutPurchase, autoEquipIfSolo } from "@/lib/items";
 
 // Defense-in-depth: per-user rate limit IN ADDITION to the IP-based
 // middleware rate limit.  This one is keyed by Supabase user ID so it
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
     const { data: existingPurchases } = await sb
       .from("purchases")
       .select("id, amount_cents, provider")
-      .eq("developer_id", dev.id)
+      .or(`and(developer_id.eq.${dev.id},gifted_to.is.null),gifted_to.eq.${dev.id}`)
       .eq("item_id", item_id)
       .eq("status", "completed");
 
@@ -249,33 +249,31 @@ export async function POST(request: Request) {
   if (isDev || isFree) {
     console.log(`Bypassing payment for ${githubLogin} (Dev: ${isDev}, Free: ${isFree})`);
     const recipientId = giftedToDevId ?? dev.id;
-    const { status: purchaseStatus } = await fulfillItemPurchase(recipientId, item_id, sb);
-    const { data: purchase, error: purchaseError } = await sb
-      .from("purchases")
-      .insert({
-        developer_id: dev.id,
-        item_id,
-        provider: isFree ? "free" : "stripe",
-        idempotency_key: `dev_${dev.id}_${item_id}_${Date.now()}`,
-        amount_cents: 0,
-        currency: "usd",
-        status: purchaseStatus,
-        ...(giftedToDevId ? { gifted_to: giftedToDevId } : {}),
-      })
-      .select("id")
-      .single();
 
-    if (purchaseError) {
+    try {
+      const { purchaseId } = await createAtomicCheckoutPurchase({
+        developerId: dev.id,
+        recipientId,
+        itemId: item_id,
+        provider: isFree ? "free" : "stripe",
+        idempotencyKey: `dev_${dev.id}_${item_id}_${Date.now()}`,
+        amountCents: 0,
+        currency: "usd",
+        giftedTo: giftedToDevId,
+        supabaseClient: sb,
+      });
+
+      await autoEquipIfSolo(recipientId, item_id);
+
+      // Return a success URL that redirects back to the shop/city
+      return NextResponse.json({
+        url: `${new URL(request.url).origin}/shop/${githubLogin}?purchased_item=${item_id}`,
+        purchase_id: purchaseId,
+      });
+    } catch (error) {
+      console.error("[app/api/checkout/route.ts] Failed to create dev/free purchase:", error);
       return NextResponse.json({ error: "Failed to create dev/free purchase" }, { status: 500 });
     }
-
-    await autoEquipIfSolo(recipientId, item_id);
-
-    // Return a success URL that redirects back to the shop/city
-    return NextResponse.json({
-      url: `${new URL(request.url).origin}/shop/${githubLogin}?purchased_item=${item_id}`,
-      purchase_id: purchase.id
-    });
   }
 
 

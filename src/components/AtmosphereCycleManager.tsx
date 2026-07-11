@@ -241,7 +241,7 @@ function SkyDome({
 
   return (
     <mesh ref={meshRef} material={skyResources.material} renderOrder={-1}>
-      <sphereGeometry args={[3500, 32, 48]} />
+      <sphereGeometry args={[5500, 32, 48]} />
     </mesh>
   );
 }
