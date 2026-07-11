@@ -71,12 +71,15 @@ export async function POST(request: Request) {
 
           const trackerProgress = custom?.config ?? {};
 
-          // 3. Check completed purchases
+          // 3. Check completed purchases (for relic_neo_cyber_sigil)
+          // Exclude free/zero-amount purchases from streak rewards and free claim items
           const { data: dbPurchases } = await admin
             .from("purchases")
             .select("id")
             .eq("developer_id", dev.id)
-            .eq("status", "completed");
+            .eq("status", "completed")
+            .not("provider", "eq", "free")
+            .gt("amount_cents", 0);
           const hasPurchases = !!(dbPurchases && dbPurchases.length > 0);
 
           const staticRelic = STATIC_RELICS.find((r) => r.id === relicId);
