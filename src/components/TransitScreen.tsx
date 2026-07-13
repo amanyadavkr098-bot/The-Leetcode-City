@@ -76,6 +76,26 @@ export default function TransitScreen({ active = true, fromDistrict, toDistrict,
           </h2>
         </div>
 
+        {/* Route map visual */}
+        <div className="w-full pt-4">
+          <div className="mb-1 flex items-center justify-between px-1 text-[10px] text-white/60">
+            <span>{fromCity.toUpperCase()}</span>
+            <span>{toCity.toUpperCase()}</span>
+          </div>
+          <div className="relative h-2 w-full border border-[#ffa116]/40 bg-black">
+            <div
+              className="absolute inset-y-0 left-0 origin-left bg-[#ffa116]/60"
+              style={{ transform: `scaleX(${progress / 100})`, transition: "transform 0.1s linear" }}
+            />
+            <div
+              className="absolute -top-1.5 -translate-x-1/2 text-sm"
+              style={{ left: `${progress}%`, transition: "left 0.1s linear" }}
+            >
+              📍
+            </div>
+          </div>
+        </div>
+
         {/* Immersive Graphics area depending on selected mode */}
         <div className="flex-1 w-full flex flex-col items-center justify-center py-6 text-center">
           {transitMode === "bus" && (
@@ -134,10 +154,10 @@ export default function TransitScreen({ active = true, fromDistrict, toDistrict,
             <span>{progress}%</span>
           </div>
           {/* Progress outer track */}
-          <div className="w-full h-6 border-2 border-[#ffa116] p-0.5 bg-black">
-            <div 
-              className="h-full bg-[#ffa116] shadow-[0_0_10px_#ffa116]" 
-              style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}
+          <div className="w-full h-6 border-2 border-[#ffa116] p-0.5 bg-black overflow-hidden">
+            <div
+              className="h-full origin-left bg-[#ffa116] shadow-[0_0_10px_#ffa116]"
+              style={{ transform: `scaleX(${progress / 100})`, transition: "transform 0.1s linear" }}
             />
           </div>
           <div className="text-center text-[10px] text-white/40 tracking-widest pt-2">
