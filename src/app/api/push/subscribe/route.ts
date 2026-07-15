@@ -1,39 +1,47 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-
-// ── POST /api/push/subscribe ─────────────────────────────────────────────────
-// Body: { developerId: number, subscription: PushSubscriptionJSON, platform: string }
-//
-// PushSubscriptionJSON looks like:
-//   { endpoint: string, keys: { p256dh: string, auth: string } }
-//
-// We store the entire object as JSON text in the `token` column so
-// dispatchPush() can JSON.parse() it and pass it straight to web-push.
-// Upsert on `token` (unique) so re-subscribing the same device doesn't
-// duplicate rows, and re-activates a previously deactivated subscription.
+import { createServerSupabase } from "@/lib/supabase-server";
 
 export async function POST(req: Request) {
   try {
-    const { developerId, subscription, platform } = await req.json();
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!developerId || !subscription?.endpoint) {
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { subscription, platform } = await req.json();
+
+    if (!subscription?.endpoint) {
       return NextResponse.json(
-        { error: "Missing required fields: developerId and subscription.endpoint" },
+        { error: "Missing required field: subscription.endpoint" },
         { status: 400 }
       );
     }
 
-    const sb = getSupabaseAdmin();
+    const admin = getSupabaseAdmin();
 
-    const { error } = await sb.from("push_subscriptions").upsert(
+    const { data: dev } = await admin
+      .from("developers")
+      .select("id")
+      .eq("claimed_by", user.id)
+      .eq("claimed", true)
+      .maybeSingle();
+
+    if (!dev) {
+      return NextResponse.json({ error: "Developer profile not found" }, { status: 404 });
+    }
+
+    const { error } = await admin.from("push_subscriptions").upsert(
       {
-        developer_id: developerId,
-        token: JSON.stringify(subscription), // store full PushSubscription JSON
+        developer_id: dev.id,
+        token: JSON.stringify(subscription),
         platform: platform || "web",
         active: true,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "token" } // unique index on token prevents duplicates
+      { onConflict: "token" }
     );
 
     if (error) {
@@ -48,35 +56,42 @@ export async function POST(req: Request) {
   }
 }
 
-// ── DELETE /api/push/subscribe ───────────────────────────────────────────────
-// Body: { developerId: number, endpoint: string }
-//
-// We mark the row inactive rather than hard-deleting it so we retain audit
-// history and dispatchPush() can see that the subscription was voluntarily
-// removed (vs. expired — those are marked inactive by 404/410 error handling).
-//
-// NOTE: The endpoint is stored inside the JSON `token` column. We filter by
-// developer_id + LIKE to locate it. For a high-scale app, add a separate
-// indexed `endpoint text unique` column (see docs/web-push-setup.md).
-
 export async function DELETE(req: Request) {
   try {
-    const { developerId, endpoint } = await req.json();
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!developerId || !endpoint) {
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { endpoint } = await req.json();
+
+    if (!endpoint) {
       return NextResponse.json(
-        { error: "Missing required fields: developerId and endpoint" },
+        { error: "Missing required field: endpoint" },
         { status: 400 }
       );
     }
 
-    const sb = getSupabaseAdmin();
+    const admin = getSupabaseAdmin();
 
-    const { error } = await sb
+    const { data: dev } = await admin
+      .from("developers")
+      .select("id")
+      .eq("claimed_by", user.id)
+      .eq("claimed", true)
+      .maybeSingle();
+
+    if (!dev) {
+      return NextResponse.json({ error: "Developer profile not found" }, { status: 404 });
+    }
+
+    const { error } = await admin
       .from("push_subscriptions")
       .update({ active: false, updated_at: new Date().toISOString() })
-      .eq("developer_id", developerId)
-      .like("token", `%${endpoint}%`); // endpoint is inside the stored JSON
+      .eq("developer_id", dev.id)
+      .like("token", `%${endpoint}%`);
 
     if (error) {
       console.error("[api/push/subscribe] DB update error:", error);
