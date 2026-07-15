@@ -384,19 +384,19 @@ export const DISTRICT_COLORS: Record<string, string> = {
 };
 
 export const DISTRICT_ORIGINS: Record<string, [number, number, number]> = {
-  downtown: [0, 0, 0],
-  frontend: [0, 0, 4000],
-  backend: [3500, 0, 0],
-  fullstack: [0, 0, -4000],
-  security: [3500, 0, 4000],       // Chennai
-  algorithms: [3500, 0, 4000],     // Chennai alias
-  mobile: [-3500, 0, 0],           // Pune
-  devops: [-3500, 0, -4000],       // Kolkata
-  data_ai: [-3500, 0, 4000],       // Ahmedabad
-  data: [-3500, 0, 4000],          // Ahmedabad alias
-  gamedev: [3500, 0, -4000],       // Nandi Hills
-  vibe_coder: [-7000, 0, 0],       // Goa
-  creator: [0, 0, -8000],          // Gurugram
+  downtown: [500, 0, 500],
+  frontend: [500, 0, 4500],
+  backend: [4000, 0, 500],
+  fullstack: [500, 0, -3500],
+  security: [4000, 0, 4500],       // Chennai
+  algorithms: [4000, 0, 4500],     // Chennai alias
+  mobile: [-3000, 0, 500],           // Pune
+  devops: [-3000, 0, -3500],       // Kolkata
+  data_ai: [-3000, 0, 4500],       // Ahmedabad
+  data: [-3000, 0, 4500],          // Ahmedabad alias
+  gamedev: [4000, 0, -3500],       // Nandi Hills
+  vibe_coder: [-6500, 0, 500],       // Goa
+  creator: [500, 0, -7500],          // Gurugram
 };
 
 export const DISTRICT_DESCRIPTIONS: Record<string, string> = {

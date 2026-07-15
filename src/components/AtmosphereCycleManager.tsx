@@ -1,9 +1,11 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs, react-hooks/immutability, react-hooks/purity, @typescript-eslint/no-unused-vars */
 
 import * as THREE from "three";
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import { useWeather } from "@/context/WeatherContext";
 
 // Helper to interpolate two hex colors using THREE.Color
 function lerpColor(c1: string, c2: string, alpha: number): string {
@@ -241,7 +243,7 @@ function SkyDome({
 
   return (
     <mesh ref={meshRef} material={skyResources.material} renderOrder={-1}>
-      <sphereGeometry args={[5500, 32, 48]} />
+      <sphereGeometry args={[6000, 32, 48]} />
     </mesh>
   );
 }
@@ -1448,6 +1450,7 @@ export default function AtmosphereCycleManager({
   weatherMode = "sunny",
 }: AtmosphereCycleManagerProps) {
   const { scene } = useThree();
+  const { isRaining } = useWeather();
 
   const moonMaterials = useMemo(() => {
     const body = new THREE.ShaderMaterial({
@@ -1630,21 +1633,24 @@ export default function AtmosphereCycleManager({
 
       // 1. Update Fog (darken into stormy charcoal grey under stormy conditions, or a cozy cold winter grey under snowy conditions)
       let fogColorToUse = currentFog;
-      if (weatherMode === "stormy") {
+      let fogNearToUse = s1.fogNear + (s2.fogNear - s1.fogNear) * f;
+      let fogFarToUse = s1.fogFar + (s2.fogFar - s1.fogFar) * f;
+
+      if (isRaining) {
+        fogColorToUse = "#3a404a";
+        fogNearToUse = 30;
+        fogFarToUse = 300;
+      } else if (weatherMode === "stormy") {
         fogColorToUse = lerpColor(currentFog, "#0b0c10", 0.78);
       } else if (weatherMode === "snowy") {
         fogColorToUse = lerpColor(currentFog, "#c8d6e5", 0.65);
       }
 
-      // Interpolate fog distances for time-of-day (daytime = clear views, night = closer fog)
-      const currentFogNear = s1.fogNear + (s2.fogNear - s1.fogNear) * f;
-      const currentFogFar = s1.fogFar + (s2.fogFar - s1.fogFar) * f;
-
       const fog = scene.fog as THREE.Fog | null;
       if (fog) {
         fog.color.set(lightningIntensity > 0 ? "#e2f0ff" : fogColorToUse);
-        fog.near = currentFogNear;
-        fog.far = currentFogFar;
+        fog.near = fogNearToUse;
+        fog.far = fogFarToUse;
       }
       scene.background = new THREE.Color(lightningIntensity > 0 ? "#cbd5e1" : fogColorToUse);
 
@@ -1725,10 +1731,22 @@ export default function AtmosphereCycleManager({
 
       // 1. Reset Fog and Background
       const fog = scene.fog as THREE.Fog | null;
-      if (fog) {
-        fog.color.set(theme.fogColor);
+      let fogColorToUse = theme.fogColor;
+      let fogNearToUse = theme.fogNear;
+      let fogFarToUse = theme.fogFar;
+
+      if (isRaining) {
+        fogColorToUse = "#3a404a";
+        fogNearToUse = 30;
+        fogFarToUse = 300;
       }
-      scene.background = new THREE.Color(theme.fogColor);
+
+      if (fog) {
+        fog.color.set(fogColorToUse);
+        fog.near = fogNearToUse;
+        fog.far = fogFarToUse;
+      }
+      scene.background = new THREE.Color(fogColorToUse);
 
       // 2. Reset Lights to Static Theme
       if (ambientLightRef.current) {
@@ -1789,8 +1807,16 @@ export default function AtmosphereCycleManager({
 
   return (
     <>
-      <fog ref={fogRef} attach="fog" args={[theme.fogColor, theme.fogNear, theme.fogFar]} />
-      <SceneBackground color={theme.fogColor} />
+      <fog
+        ref={fogRef}
+        attach="fog"
+        args={[
+          isRaining ? "#3a404a" : theme.fogColor,
+          isRaining ? 30 : theme.fogNear,
+          isRaining ? 300 : theme.fogFar,
+        ]}
+      />
+      <SceneBackground color={isRaining ? "#3a404a" : theme.fogColor} />
 
       <ambientLight ref={ambientLightRef} intensity={theme.ambientIntensity * 3} color={theme.ambientColor} />
       <directionalLight ref={sunLightRef} position={theme.sunPos} intensity={theme.sunIntensity * 3.5} color={theme.sunColor} shadow-bias={-0.0005} shadow-normalBias={0.04} />

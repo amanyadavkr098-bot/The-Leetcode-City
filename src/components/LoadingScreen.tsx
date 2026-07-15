@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -26,14 +27,14 @@ interface LoadingScreenProps {
 
 const STAGE_MESSAGES: Record<string, string> = {
   init: "Checking your browser...",
-  fetching: "Fetching developers...",
+  fetching: "Fetching profiles...",
   generating: "Laying down streets...",
   rendering: "Building the skyline...",
   ready: "Welcome to the city",
 };
 
 const TIPS = [
-  "Click any building to see that dev's profile",
+  "Click any building to see that coder's profile",
   "Use Fly Mode to cruise above the skyline",
   "Taller buildings = more submissions",
   "Try searching for your LeetCode username",
@@ -98,8 +99,9 @@ export default function LoadingScreen({
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0d0d0f] transition-opacity duration-[600ms] ${fading ? "opacity-0" : "opacity-100"
-        }`}
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#070709] transition-opacity duration-[600ms] ${
+        fading ? "opacity-0" : "opacity-100"
+      }`}
       onTransitionEnd={handleTransitionEnd}
     >
       {/* Skyline silhouette */}
@@ -158,7 +160,7 @@ export default function LoadingScreen({
       {isError && (
         <button
           onClick={onRetry}
-          className="btn-press mt-6 px-6 py-2 font-pixel text-xs text-[#0d0d0f]"
+          className="btn-press mt-6 px-6 py-2 font-pixel text-xs text-[#070709]"
           style={{ backgroundColor: accentColor }}
         >
           Retry

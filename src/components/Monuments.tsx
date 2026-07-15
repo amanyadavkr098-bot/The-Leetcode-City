@@ -1,7 +1,8 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars */
 
 import * as THREE from "three";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 
 // Helper: low-poly voxel cylinder/column
@@ -11,6 +12,61 @@ function Column({ position, height, radius = 1 }: { position: [number, number, n
       <cylinderGeometry args={[radius, radius * 1.1, height, 6]} />
       <meshStandardMaterial color="#b2b5ba" roughness={0.7} />
     </mesh>
+  );
+}
+
+// ─── Vidhana Soudha Helper components ───────────────────────────
+function VidhanaSoudhaColumns() {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const cols = [-16.5, -13.5, -10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5, 13.5, 16.5];
+  
+  useEffect(() => {
+    if (!meshRef.current) return;
+    const dummy = new THREE.Object3D();
+    cols.forEach((x, idx) => {
+      dummy.position.set(x, 17, 22.5);
+      dummy.updateMatrix();
+      meshRef.current!.setMatrixAt(idx, dummy.matrix);
+    });
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  }, []);
+
+  return (
+    <instancedMesh ref={meshRef} args={[null as any, null as any, 12]}>
+      <cylinderGeometry args={[0.8, 0.8 * 1.1, 14, 6]} />
+      <meshStandardMaterial color="#b2b5ba" roughness={0.7} />
+    </instancedMesh>
+  );
+}
+
+function VidhanaSoudhaWindows() {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const rows = [-8, -2, 4, 10];
+  const cols = [-20, -14, -8, 8, 14, 20];
+  
+  useEffect(() => {
+    if (!meshRef.current) return;
+    const dummy = new THREE.Object3D();
+    let idx = 0;
+    for (const y of rows) {
+      for (const x of cols) {
+        dummy.position.set(x, y + 14, 19.05);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(idx++, dummy.matrix);
+        
+        dummy.position.set(x, y + 14, -19.05);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(idx++, dummy.matrix);
+      }
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  }, []);
+
+  return (
+    <instancedMesh ref={meshRef} args={[null as any, null as any, 48]}>
+      <boxGeometry args={[2.5, 3.2, 0.1]} />
+      <meshStandardMaterial color="#ffa040" emissive="#ffa040" emissiveIntensity={1.8} toneMapped={false} />
+    </instancedMesh>
   );
 }
 
@@ -46,9 +102,7 @@ export function VidhanaSoudha({ position }: { position: [number, number, number]
       </mesh>
 
       {/* Porch Pillars (12 columns) */}
-      {[-16.5, -13.5, -10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5, 13.5, 16.5].map((x, idx) => (
-        <Column key={idx} position={[x, 10, 22.5]} height={14} radius={0.8} />
-      ))}
+      <VidhanaSoudhaColumns />
 
       {/* Porch Roof Pediment */}
       <mesh position={[0, 25.5, 21]}>
@@ -87,20 +141,7 @@ export function VidhanaSoudha({ position }: { position: [number, number, number]
       </mesh>
 
       {/* Rows of Windows (Front/Back) */}
-      {[-8, -2, 4, 10].map((y) =>
-        [-20, -14, -8, 8, 14, 20].map((x) => (
-          <group key={`${x}-${y}`}>
-            <mesh position={[x, y + 14, 19.05]}>
-              <boxGeometry args={[2.5, 3.2, 0.1]} />
-              <meshStandardMaterial color="#ffa040" emissive="#ffa040" emissiveIntensity={1.8} toneMapped={false} />
-            </mesh>
-            <mesh position={[x, y + 14, -19.05]}>
-              <boxGeometry args={[2.5, 3.2, 0.1]} />
-              <meshStandardMaterial color="#ffa040" emissive="#ffa040" emissiveIntensity={1.8} toneMapped={false} />
-            </mesh>
-          </group>
-        ))
-      )}
+      <VidhanaSoudhaWindows />
     </group>
   );
 }
