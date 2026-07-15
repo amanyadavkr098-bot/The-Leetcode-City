@@ -137,10 +137,7 @@ export interface CityCanal {
 
 export interface CityDecoration {
   type: 'tree' | 'streetLamp' | 'car' | 'bench' | 'fountain' | 'sidewalk' | 'roadMarking'
-    | 'autoRickshaw' | 'chaiStall' | 'templeGopuram' | 'techParkSign'
-    | 'nandiBull' | 'gatewayArch' | 'clockTower'
-    | 'vidhanaSoudha' | 'bangalorePalace' | 'tipuFortWall' | 'busStop'
-    | 'gatewayOfIndia' | 'charminar' | 'indiaGate' | 'marinaLighthouse' | 'shaniwarWada' | 'isroRocket';
+    | 'autoRickshaw' | 'busStop';
   position: [number, number, number];
   rotation: number;
   variant: number;
@@ -384,19 +381,19 @@ export const DISTRICT_COLORS: Record<string, string> = {
 };
 
 export const DISTRICT_ORIGINS: Record<string, [number, number, number]> = {
-  downtown: [500, 0, 500],
-  frontend: [500, 0, 4500],
-  backend: [4000, 0, 500],
-  fullstack: [500, 0, -3500],
-  security: [4000, 0, 4500],       // Chennai
-  algorithms: [4000, 0, 4500],     // Chennai alias
-  mobile: [-3000, 0, 500],           // Pune
-  devops: [-3000, 0, -3500],       // Kolkata
-  data_ai: [-3000, 0, 4500],       // Ahmedabad
-  data: [-3000, 0, 4500],          // Ahmedabad alias
-  gamedev: [4000, 0, -3500],       // Nandi Hills
-  vibe_coder: [-6500, 0, 500],       // Goa
-  creator: [500, 0, -7500],          // Gurugram
+  downtown: [0, 0, 0],
+  frontend: [0, 0, 0],
+  backend: [0, 0, 0],
+  fullstack: [0, 0, 0],
+  security: [0, 0, 0],
+  algorithms: [0, 0, 0],
+  mobile: [0, 0, 0],
+  devops: [0, 0, 0],
+  data_ai: [0, 0, 0],
+  data: [0, 0, 0],
+  gamedev: [0, 0, 0],
+  vibe_coder: [0, 0, 0],
+  creator: [0, 0, 0],
 };
 
 export const DISTRICT_DESCRIPTIONS: Record<string, string> = {
@@ -451,12 +448,11 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
   const decorations: CityDecoration[] = [];
   const districtZones: DistrictZone[] = [];
   const canals: CityCanal[] = [];
-  const districtPlazas = new Map<string, [number, number, number]>();
   const maxContrib = devs.reduce((max, d) => Math.max(max, d.contributions), 1);
   const maxStars = devs.reduce((max, d) => Math.max(max, d.total_stars), 1);
   const maxContribV2 = devs.reduce((max, d) => Math.max(max, d.contributions_total ?? 0), 1);
 
-  // ── 1. Group by district, sort within each, concat in priority order ──
+  // ── 1. Group devs by district, compute composites ──
   const composites = precomputeComposites(devs, maxContrib, maxStars, maxContribV2);
 
   const DISTRICT_ORDER = [
@@ -471,7 +467,6 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     districtGroups[did].push(dev);
   }
 
-  // Seeded shuffle for deterministic "random" order
   function seededShuffle<T>(arr: T[], seed: number): T[] {
     const result = [...arr];
     for (let i = result.length - 1; i > 0; i--) {
@@ -481,7 +476,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     return result;
   }
 
-  // ── Extract top 50 global devs as "downtown" (center, around the spire) ──
+  // ── 2. Extract top 50 as "downtown" ──
   const DOWNTOWN_COUNT = 50;
   const LOTS_PER_BLOCK = BLOCK_SIZE * BLOCK_SIZE; // 16
   const allDevsSorted = [...devs].sort((a, b) =>
@@ -499,14 +494,13 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
 
   const downtownOverride = new Set(downtownDevs.map(d => d.github_login));
 
-  // ── Per-district dev arrays (sorted by composite, block-shuffled, minus downtown) ──
+  // ── Per-district dev arrays ──
   const districtDevArrays: { did: string; devs: DeveloperRecord[] }[] = [];
   for (const did of DISTRICT_ORDER) {
     const group = districtGroups[did];
     if (!group || group.length === 0) continue;
     const filtered = group.filter(d => !downtownSet.has(d.github_login));
     if (filtered.length === 0) continue;
-    // Full shuffle: organic mix of tall and short buildings
     districtDevArrays.push({ did, devs: seededShuffle(filtered, hashStr(did)) });
   }
   for (const [did, group] of Object.entries(districtGroups)) {
@@ -517,42 +511,45 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     }
   }
 
-  // ── 2. Place blocks on a GLOBAL axis-aligned grid ──
-  // Downtown spiral at center, each district spiral at an offset.
-  // occupiedCells prevents any overlap.
+  // ═══════════════════════════════════════════════════════════════
+  // ── NEW LAYOUT: Single compact city, quadrants divided by roads ──
+  // ═══════════════════════════════════════════════════════════════
 
+  // Road channel dimensions
+  const MAIN_ROAD_WIDTH = 40;    // Width of the cross-shaped road dividers
+  const ROAD_HALF = MAIN_ROAD_WIDTH / 2;
 
-  // Distance (in grid cells) from center to district spiral origins
-  const DISTRICT_GRID_RADIUS = 4;
-
+  // A unified global grid. Each cell is one city block.
   const occupiedCells = new Set<string>();
   let globalDevIndex = 0;
   let globalBlockSeed = 0;
   const allBlocks: { cx: number; cz: number; gx: number; gz: number; district: string }[] = [];
 
-  // Spacing for central river
-  const RIVER_WIDTH = 120;
-  const RIVER_MARGIN = 20;
-  const RIVER_PUSH = 150; // Symmetric push to clear [-81.5, 81.5] for the river and docks
-
-  // ── Helper: grid coord → world position ──
+  // ── Grid coord → world position (with road gap at center) ──
   function gridToWorld(gx: number, gz: number): [number, number] {
-    const wx = localBlockAxisPos(gx, BLOCK_FOOTPRINT_X);
-    let wz = 0;
-    if (gz >= 0) {
-      wz = gz * BLOCK_FOOTPRINT_Z + gz * STREET_W + RIVER_PUSH;
+    // X axis
+    let wx: number;
+    if (gx >= 0) {
+      wx = ROAD_HALF + gx * (BLOCK_FOOTPRINT_X + STREET_W) + BLOCK_FOOTPRINT_X / 2;
     } else {
-      const positiveIdx = -gz - 1; // -1 -> 0, -2 -> 1, etc.
-      wz = -(positiveIdx * BLOCK_FOOTPRINT_Z + positiveIdx * STREET_W) - RIVER_PUSH;
+      wx = -ROAD_HALF + (gx + 1) * (BLOCK_FOOTPRINT_X + STREET_W) - BLOCK_FOOTPRINT_X / 2;
+    }
+    // Z axis
+    let wz: number;
+    if (gz >= 0) {
+      wz = ROAD_HALF + gz * (BLOCK_FOOTPRINT_Z + STREET_W) + BLOCK_FOOTPRINT_Z / 2;
+    } else {
+      wz = -ROAD_HALF + (gz + 1) * (BLOCK_FOOTPRINT_Z + STREET_W) - BLOCK_FOOTPRINT_Z / 2;
     }
     return [wx, wz];
   }
 
-  // ── Helper: create buildings + decorations for one block ──
+  // ── Place buildings + decorations for one block ──
   function placeBlockContent(
     blockCX: number, blockCZ: number,
     blockDevs: DeveloperRecord[],
     seedIdx: number,
+    districtId: string,
   ) {
     for (let i = 0; i < blockDevs.length; i++) {
       const dev = blockDevs[i];
@@ -577,21 +574,15 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
         d = Math.round(12 + seededRandom(seed1 + 99) * 16);
         litPercentage = 0.2 + composite * 0.7;
 
-        // For LC-claimed buildings: decode submission-frequency litPercentage
-        // contributions_total is stored as Math.round(litPct * 1000) by verify-leetcode
         if (dev.claimed && dev.contributions_total && dev.contributions_total <= 1000) {
           litPercentage = dev.contributions_total / 1000;
         }
       }
 
-      // BUNGALOW OVERRIDE
       if (dev.building_style === "bungalow") {
-        w = 80;
-        d = 60;
-        height = 25;
+        w = 80; d = 60; height = 25;
       }
 
-      // Safety guard: if any dimension is NaN or invalid, use safe defaults
       if (isNaN(height) || height <= 0) height = MIN_BUILDING_HEIGHT;
       if (isNaN(w) || w <= 0) w = 16;
       if (isNaN(d) || d <= 0) d = 14;
@@ -601,9 +592,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       const floors = Math.max(3, Math.floor(height / floorH));
       const windowsPerFloor = Math.max(3, Math.floor(w / 5));
       const sideWindowsPerFloor = Math.max(3, Math.floor(d / 5));
-      const did = downtownOverride.has(dev.github_login)
-        ? 'downtown'
-        : (dev.district ?? inferDistrict(dev.primary_language));
+      const did = downtownOverride.has(dev.github_login) ? 'downtown' : districtId;
 
       buildings.push({
         login: dev.github_login,
@@ -643,7 +632,6 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
         windowsPerFloor,
         sideWindowsPerFloor,
         litPercentage,
-        // LeetCode-specific: pass through for building visuals
         easy_solved: (dev as unknown as Record<string, unknown>).easy_solved as number ?? undefined,
         medium_solved: (dev as unknown as Record<string, unknown>).medium_solved as number ?? undefined,
         hard_solved: (dev as unknown as Record<string, unknown>).hard_solved as number ?? undefined,
@@ -653,6 +641,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       });
     }
 
+    // Sidewalk
     decorations.push({
       type: 'sidewalk',
       position: [blockCX, 0.1, blockCZ],
@@ -661,6 +650,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       size: [BLOCK_FOOTPRINT_X + 8, BLOCK_FOOTPRINT_Z + 8],
     });
 
+    // Street lamps
     const lampSeed = seedIdx * 1000 + 31;
     const lampCount = 2 + Math.floor(seededRandom(lampSeed * 311) * 3);
     for (let li = 0; li < lampCount; li++) {
@@ -676,13 +666,13 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       decorations.push({ type: 'streetLamp', position: [lx, 0, lz], rotation: 0, variant: 0 });
     }
 
+    // Parked cars
     for (let bi = 0; bi < blockDevs.length; bi++) {
       const bld = buildings[buildings.length - blockDevs.length + bi];
       const carSeed = hashStr(blockDevs[bi].github_login) + 777;
       if (seededRandom(carSeed) > 0.6) {
         const side = seededRandom(carSeed + 1) > 0.5 ? 1 : -1;
         const carX = bld.position[0] + side * (bld.width / 2 + 6);
-        // ~40% chance of auto-rickshaw instead of car (Bengaluru themed)
         const isRickshaw = seededRandom(carSeed + 4) < 0.4;
         decorations.push({
           type: isRickshaw ? 'autoRickshaw' : 'car',
@@ -693,6 +683,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       }
     }
 
+    // Trees at block edges
     const treeSeed = seedIdx * 2000 + 77;
     const treeCount = 1 + Math.floor(seededRandom(treeSeed * 421) * 2);
     for (let ti = 0; ti < treeCount; ti++) {
@@ -713,116 +704,70 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
       });
     }
 
-    // ── Bengaluru-themed decorations ──
-
-    // Chai stall: 30% chance per block, placed at a random block edge
-    const chaiSeed = seedIdx * 3000 + 99;
-    if (seededRandom(chaiSeed) < 0.3) {
-      const chaiEdge = Math.floor(seededRandom(chaiSeed + 1) * 4);
-      let cx = blockCX, cz = blockCZ;
-      if (chaiEdge === 0) cz -= BLOCK_FOOTPRINT_Z / 2 + 5;
-      else if (chaiEdge === 1) cx += BLOCK_FOOTPRINT_X / 2 + 5;
-      else if (chaiEdge === 2) cz += BLOCK_FOOTPRINT_Z / 2 + 5;
-      else cx -= BLOCK_FOOTPRINT_X / 2 + 5;
-      decorations.push({
-        type: 'chaiStall',
-        position: [cx, 0, cz],
-        rotation: [0, Math.PI / 2, Math.PI, -Math.PI / 2][chaiEdge],
-        variant: 0,
-      });
-    }
-
-    // Tech park sign: 20% chance per block
-    const signSeed = seedIdx * 4000 + 55;
-    if (seededRandom(signSeed) < 0.2) {
-      const signEdge = Math.floor(seededRandom(signSeed + 1) * 4);
-      let sx = blockCX, sz = blockCZ;
-      if (signEdge === 0) sz -= BLOCK_FOOTPRINT_Z / 2 + 3;
-      else if (signEdge === 1) sx += BLOCK_FOOTPRINT_X / 2 + 3;
-      else if (signEdge === 2) sz += BLOCK_FOOTPRINT_Z / 2 + 3;
-      else sx -= BLOCK_FOOTPRINT_X / 2 + 3;
-      decorations.push({
-        type: 'techParkSign',
-        position: [sx, 0, sz],
-        rotation: [0, Math.PI / 2, Math.PI, -Math.PI / 2][signEdge],
-        variant: 0,
-      });
-    }
-
-    // Temple gopuram: rare (8% chance per block), placed near plaza center
-    const templeSeed = seedIdx * 5000 + 33;
-    if (seededRandom(templeSeed) < 0.08) {
-      const tpx = blockCX + (seededRandom(templeSeed + 1) - 0.5) * 8;
-      const tpz = blockCZ + (seededRandom(templeSeed + 2) - 0.5) * 8;
-      decorations.push({
-        type: 'templeGopuram',
-        position: [tpx, 0, tpz],
-        rotation: 0,
-        variant: 0,
-      });
-    }
-
     globalDevIndex += blockDevs.length;
   }
 
-  // ── Helper: place a spiral of devs at grid origin (ogx, ogz) ──
-  function placeSpiralCluster(
-    clusterDevs: DeveloperRecord[],
-    ogx: number, ogz: number,
-    addPlaza: boolean,
-    districtName: string,
-  ) {
-    // Plaza at origin cell
-    if (addPlaza) {
-      const key = `${districtName}:${ogx},${ogz}`;
-      occupiedCells.add(key);
-      
-      // Block adjacent cells for a plaza buffer zone (So monuments don't overlap buildings)
-      occupiedCells.add(`${districtName}:${ogx + 1},${ogz}`);
-      occupiedCells.add(`${districtName}:${ogx - 1},${ogz}`);
-      occupiedCells.add(`${districtName}:${ogx},${ogz + 1}`);
-      occupiedCells.add(`${districtName}:${ogx},${ogz - 1}`);
+  // ── Quadrant assignment: each district goes to a specific quadrant ──
+  // Quadrants: NE (+x, +z), NW (-x, +z), SE (+x, -z), SW (-x, -z)
+  const QUADRANT_DISTRICTS: Record<string, string[]> = {
+    'NE': ['frontend', 'backend', 'security'],
+    'NW': ['data_ai', 'vibe_coder', 'creator'],
+    'SE': ['fullstack', 'gamedev'],
+    'SW': ['devops', 'mobile'],
+  };
 
-      const [pcx, plazaZ] = gridToWorld(ogx, ogz);
-      const origin = DISTRICT_ORIGINS[districtName] || [0, 0, 0];
-      const px = pcx + origin[0];
-      const pcz = plazaZ + origin[2];
+  // Build reverse mapping: district → quadrant sign multipliers
+  const districtQuadrant: Record<string, [number, number]> = {};
+  for (const [q, dids] of Object.entries(QUADRANT_DISTRICTS)) {
+    const sx = q.includes('E') ? 1 : -1;
+    const sz = q.includes('N') ? 1 : -1;
+    for (const did of dids) {
+      districtQuadrant[did] = [sx, sz];
+    }
+  }
+
+  // ── Place spiral of blocks for a set of devs into a quadrant ──
+  function placeSpiralInQuadrant(
+    clusterDevs: DeveloperRecord[],
+    signX: number, signZ: number,
+    districtName: string,
+    addPlaza: boolean,
+    startRing: number,   // Which spiral ring to start from (0 = closest to center)
+  ) {
+    // Plaza at the first block position
+    if (addPlaza && clusterDevs.length > 0) {
+      const [pcx, pcz] = gridToWorld(signX > 0 ? startRing : -(startRing + 1), signZ > 0 ? 0 : -1);
       plazas.push({
-        position: [px, 0, pcz],
+        position: [pcx, 0, pcz],
         size: Math.min(BLOCK_FOOTPRINT_X, BLOCK_FOOTPRINT_Z) * 0.8,
         variant: seededRandom(globalBlockSeed * 997 + 42),
         district: districtName,
         city: DISTRICT_NAMES[districtName] ?? districtName,
       });
-      districtPlazas.set(districtName, [px, 0, pcz]);
-      allBlocks.push({ cx: px, cz: pcz, gx: ogx, gz: ogz, district: districtName });
-      globalBlockSeed++;
     }
 
     let devIdx = 0;
     let spiralIdx = 0;
 
     while (devIdx < clusterDevs.length) {
-      const [bx, by] = spiralCoord(spiralIdx);
-      const gx = ogx + bx;
-      const gz = ogz + by;
-      const key = `${districtName}:${gx},${gz}`;
+      const [bx, by] = spiralCoord(spiralIdx + startRing);
+      // Map spiral coords into the correct quadrant
+      const gx = signX > 0 ? Math.abs(bx) : -(Math.abs(bx) + 1);
+      const gz = signZ > 0 ? Math.abs(by) : -(Math.abs(by) + 1);
+      const key = `${gx},${gz}`;
 
       if (occupiedCells.has(key)) { spiralIdx++; continue; }
       occupiedCells.add(key);
 
-      const origin = DISTRICT_ORIGINS[districtName] || [0, 0, 0];
       let [blockCX, blockCZ] = gridToWorld(gx, gz);
-      blockCX += origin[0];
-      blockCZ += origin[2];
 
-
+      // Slight jitter for organic feel
       const jitterSeed = globalBlockSeed * 10000;
-      blockCX += (seededRandom(jitterSeed) - 0.5) * 6;
-      blockCZ += (seededRandom(jitterSeed + 7777) - 0.5) * 6;
+      blockCX += (seededRandom(jitterSeed) - 0.5) * 4;
+      blockCZ += (seededRandom(jitterSeed + 7777) - 0.5) * 4;
 
       const blockDevs = clusterDevs.slice(devIdx, devIdx + LOTS_PER_BLOCK);
-      placeBlockContent(blockCX, blockCZ, blockDevs, globalBlockSeed);
+      placeBlockContent(blockCX, blockCZ, blockDevs, globalBlockSeed, districtName);
       allBlocks.push({ cx: blockCX, cz: blockCZ, gx, gz, district: districtName });
 
       devIdx += blockDevs.length;
@@ -831,71 +776,87 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     }
   }
 
-  // ── A) Downtown: spiral at grid (0, 0) ──
-  placeSpiralCluster(downtownDevs, 0, 0, true, 'downtown');
-
-  // ── B) Districts: spiral at offset grid positions ──
-  for (let di = 0; di < districtDevArrays.length; di++) {
-    placeSpiralCluster(districtDevArrays[di].devs, 0, 0, true, districtDevArrays[di].did);
+  // ── A) Downtown: spread across all 4 quadrants from center ──
+  // Split downtown devs into 4 roughly-equal groups, one per quadrant
+  const dtQ = Math.ceil(downtownDevs.length / 4);
+  const dtQuadrants: [number, number][] = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+  for (let qi = 0; qi < 4; qi++) {
+    const start = qi * dtQ;
+    const slice = downtownDevs.slice(start, start + dtQ);
+    if (slice.length === 0) continue;
+    const [sx, sz] = dtQuadrants[qi];
+    placeSpiralInQuadrant(slice, sx, sz, 'downtown', qi === 0, 0);
   }
 
-  // ── Road markings & Canals between adjacent blocks (global grid) ──
+  // ── B) Districts: each placed in its assigned quadrant, starting after downtown ring ──
+  const districtStartRing = 2; // Start 2 rings out from center (downtown takes ring 0-1)
+  const quadrantDistrictIdx: Record<string, number> = { 'NE': 0, 'NW': 0, 'SE': 0, 'SW': 0 };
+
+  for (const { did, devs: dDevs } of districtDevArrays) {
+    const quadrantSigns = districtQuadrant[did] || [1, 1];
+    const quadrantKey = `${quadrantSigns[0] > 0 ? 'E' : 'W'}`;
+    const fullKey = `${quadrantSigns[1] > 0 ? 'N' : 'S'}${quadrantKey}`;
+    const ringOffset = quadrantDistrictIdx[fullKey] ?? 0;
+    quadrantDistrictIdx[fullKey] = ringOffset + 1;
+
+    placeSpiralInQuadrant(
+      dDevs,
+      quadrantSigns[0], quadrantSigns[1],
+      did,
+      true,
+      districtStartRing + ringOffset * 3,
+    );
+  }
+
+  // ── Road markings along the cross-shaped main roads ──
+  // Compute city extent
+  let cityMinX = 0, cityMaxX = 0, cityMinZ = 0, cityMaxZ = 0;
+  for (const b of buildings) {
+    cityMinX = Math.min(cityMinX, b.position[0] - b.width / 2);
+    cityMaxX = Math.max(cityMaxX, b.position[0] + b.width / 2);
+    cityMinZ = Math.min(cityMinZ, b.position[2] - b.depth / 2);
+    cityMaxZ = Math.max(cityMaxZ, b.position[2] + b.depth / 2);
+  }
+  const cityPadding = 80;
+  const extentX = Math.max(Math.abs(cityMinX), Math.abs(cityMaxX)) + cityPadding;
+  const extentZ = Math.max(Math.abs(cityMinZ), Math.abs(cityMaxZ)) + cityPadding;
+
+  // Horizontal road dashes (along X axis at Z=0)
   const DASH_LENGTH = 6;
   const DASH_GAP = 8;
   const DASH_STEP = DASH_LENGTH + DASH_GAP;
+  for (let x = -extentX; x <= extentX; x += DASH_STEP) {
+    decorations.push({ type: 'roadMarking', position: [x, 0.2, 0], rotation: Math.PI / 2, variant: 0, size: [2, DASH_LENGTH] });
+  }
+  // Vertical road dashes (along Z axis at X=0)
+  for (let z = -extentZ; z <= extentZ; z += DASH_STEP) {
+    decorations.push({ type: 'roadMarking', position: [0, 0.2, z], rotation: 0, variant: 0, size: [2, DASH_LENGTH] });
+  }
+
+  // ── Inter-block road markings (within quadrants) ──
   const blockByGrid = new Map<string, typeof allBlocks[0]>();
-  for (const b of allBlocks) blockByGrid.set(`${b.district}:${b.gx},${b.gz}`, b);
+  for (const b of allBlocks) blockByGrid.set(`${b.gx},${b.gz}`, b);
   for (const block of allBlocks) {
     const halfX = BLOCK_FOOTPRINT_X / 2;
     const halfZ = BLOCK_FOOTPRINT_Z / 2;
-    
-    // Vertical street segment to the right
-    const right = blockByGrid.get(`${block.district}:${block.gx + 1},${block.gz}`);
-    if (right) {
+
+    const right = blockByGrid.get(`${block.gx + 1},${block.gz}`);
+    if (right && right.district === block.district) {
       const roadCX = (block.cx + halfX + right.cx - halfX) / 2;
       const zMin = Math.min(block.cz, right.cz) - halfZ;
       const zMax = Math.max(block.cz, right.cz) + halfZ;
-      
-      // 50% chance of vertical canal instead of asphalt road
-      const isCanal = (Math.abs(block.gx * 17 + block.gz * 31) % 100) < 50;
-      if (isCanal) {
-        canals.push({
-          position: [roadCX, 0.4, (block.cz + right.cz) / 2],
-          width: 12,
-          length: Math.abs(right.cz - block.cz) + BLOCK_FOOTPRINT_Z,
-          rotation: Math.PI / 2, // Rotate to run along Z
-          district: block.district, // Keep for potential styling/reference
-        });
-      } else {
-        for (let z = zMin; z <= zMax; z += DASH_STEP) {
-          decorations.push({ type: 'roadMarking', position: [roadCX, 0.2, z], rotation: 0, variant: 0, size: [2, DASH_LENGTH] });
-        }
+      for (let z = zMin; z <= zMax; z += DASH_STEP) {
+        decorations.push({ type: 'roadMarking', position: [roadCX, 0.2, z], rotation: 0, variant: 0, size: [2, DASH_LENGTH] });
       }
     }
-    
-    // Horizontal street segment to the bottom
-    const bottom = blockByGrid.get(`${block.district}:${block.gx},${block.gz + 1}`);
-    if (bottom) {
-      // Skip roads crossing the river channel (which are handled by bridges)
-      if (!((block.gz < 0 && bottom.gz >= 0) || (block.gz >= 0 && bottom.gz < 0))) {
-        const roadCZ = (block.cz + halfZ + bottom.cz - halfZ) / 2;
-        const xMin = Math.min(block.cx, bottom.cx) - halfX;
-        const xMax = Math.max(block.cx, bottom.cx) + halfX;
-        
-        // 50% chance of horizontal canal instead of asphalt road
-        const isCanal = (Math.abs(block.gx * 43 + block.gz * 13) % 100) < 50;
-        if (isCanal) {
-          canals.push({
-            position: [(block.cx + bottom.cx) / 2, 0.4, roadCZ],
-            width: 12,
-            length: Math.abs(bottom.cx - block.cx) + BLOCK_FOOTPRINT_X,
-            rotation: 0, // Keep at 0 to run along X
-          });
-        } else {
-          for (let x = xMin; x <= xMax; x += DASH_STEP) {
-            decorations.push({ type: 'roadMarking', position: [x, 0.2, roadCZ], rotation: Math.PI / 2, variant: 0, size: [2, DASH_LENGTH] });
-          }
-        }
+
+    const bottom = blockByGrid.get(`${block.gx},${block.gz + 1}`);
+    if (bottom && bottom.district === block.district) {
+      const roadCZ = (block.cz + halfZ + bottom.cz - halfZ) / 2;
+      const xMin = Math.min(block.cx, bottom.cx) - halfX;
+      const xMax = Math.max(block.cx, bottom.cx) + halfX;
+      for (let x = xMin; x <= xMax; x += DASH_STEP) {
+        decorations.push({ type: 'roadMarking', position: [x, 0.2, roadCZ], rotation: Math.PI / 2, variant: 0, size: [2, DASH_LENGTH] });
       }
     }
   }
@@ -930,8 +891,6 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     }
   }
 
-
-
   // ── District zones (computed from actual building positions) ──
   const dzMap: Record<string, CityBuilding[]> = {};
   for (const b of buildings) {
@@ -956,72 +915,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     });
   }
 
-  // ── Scatter standalone Bengaluru monuments across the map ──
-  // Compute city radius from the outermost building
-  let cityMaxR = 100;
-  for (const b of buildings) {
-    const r = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
-    if (r > cityMaxR) cityMaxR = r;
-  }
-  // Keep monuments INSIDE the city footprint — not far outside
-  const scatterRadius = cityMaxR * 0.45;
-
-  // Place custom regional monuments at the center of their respective districts
-  const DISTRICT_MONUMENTS: Record<string, CityDecoration['type'][]> = {
-    downtown: ['vidhanaSoudha', 'isroRocket'],
-    frontend: ['gatewayOfIndia'],
-    backend: ['charminar'],
-    fullstack: ['indiaGate'],
-    security: ['marinaLighthouse'],
-    mobile: ['shaniwarWada'],
-    devops: ['tipuFortWall'],
-    data_ai: ['bangalorePalace'],
-  };
-
-  const placedTypes = new Set<string>();
-
-  for (const dz of districtZones) {
-    const types = DISTRICT_MONUMENTS[dz.id];
-    if (!types) continue;
-    const plazaCenter = districtPlazas.get(dz.id) || dz.center;
-    types.forEach((type, idx) => {
-      // Offset slightly if there are multiple monuments in the same district
-      const ox = idx === 0 ? 0 : 35;
-      const oz = idx === 0 ? 0 : -35;
-      const rot = Math.atan2(plazaCenter[0], plazaCenter[2]) + Math.PI;
-      decorations.push({
-        type,
-        position: [plazaCenter[0] + ox, 0, plazaCenter[2] + oz],
-        rotation: rot,
-        variant: 0,
-      });
-      placedTypes.add(type);
-    });
-  }
-
-  // Fallback for any monuments whose districts didn't spawn (so they are always visible)
-  Object.entries(DISTRICT_MONUMENTS).forEach(([did, types]) => {
-    types.forEach((type, idx) => {
-      if (placedTypes.has(type)) return;
-      // Spawn at a fallback angle and radius inside the active city
-      const angle = (idx * 0.5 + hashStr(type)) * (Math.PI / 4);
-      const r = scatterRadius * 0.35;
-      const mx = Math.cos(angle) * r;
-      let mz = Math.sin(angle) * r;
-      if (Math.abs(mz) < 95) {
-        mz = mz >= 0 ? 95 + 10 : -95 - 10;
-      }
-      decorations.push({
-        type,
-        position: [mx, 0, mz],
-        rotation: Math.atan2(mx, mz) + Math.PI,
-        variant: 0,
-      });
-      placedTypes.add(type);
-    });
-  });
-
-  // 4. Bus Stops at all plazas
+  // ── Bus stops at plazas ──
   for (let pi = 0; pi < plazas.length; pi++) {
     const plaza = plazas[pi];
     const [px, , pz] = plaza.position;
@@ -1033,137 +927,35 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     });
   }
 
-  // Monument types to scatter
-  const MONUMENT_TYPES: { type: CityDecoration['type']; count: number }[] = [
-    { type: 'nandiBull', count: 4 },
-    { type: 'gatewayArch', count: 6 },
-    { type: 'clockTower', count: 3 },
-    { type: 'templeGopuram', count: 5 },
-    { type: 'chaiStall', count: 8 },
-    { type: 'techParkSign', count: 6 },
-  ];
-
-  // Golden-angle spiral for even distribution INSIDE the city
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  let scatterIndex = 0;
-  const scatterSeed = 77777;
-
-  for (const { type, count } of MONUMENT_TYPES) {
-    for (let mi = 0; mi < count; mi++) {
-      const idx = scatterIndex++;
-      // Spiral placement: radius varies from 15% to 55% of city radius (inside the city)
-      const t = (idx + 0.5) / (MONUMENT_TYPES.reduce((s, m) => s + m.count, 0));
-      const r = scatterRadius * (0.15 + t * 0.4);
-      const angle = idx * goldenAngle + seededRandom(scatterSeed + idx * 7) * 0.4;
-      const mx = Math.cos(angle) * r + (seededRandom(scatterSeed + idx * 13) - 0.5) * 20;
-      let mz = Math.sin(angle) * r + (seededRandom(scatterSeed + idx * 17) - 0.5) * 20;
-      // Push monuments out of the river channel (Z: -95 to 95)
-      if (Math.abs(mz) < 95) {
-        const randPush = seededRandom(scatterSeed + idx * 19) * 40;
-        mz = mz >= 0 ? 95 + randPush : -95 - randPush;
-      }
-      const rot = seededRandom(scatterSeed + idx * 31) * Math.PI * 2;
-
-      decorations.push({
-        type,
-        position: [mx, 0, mz],
-        rotation: rot,
-        variant: 0,
-      });
-    }
-  }
-
-  // ── River ──
-  const riverCenterZ = 0; // The river flows horizontally right down the center
-  let bMinX = 0, bMaxX = 0;
-  for (const b of buildings) {
-    if (b.position[0] < bMinX) bMinX = b.position[0];
-    if (b.position[0] > bMaxX) bMaxX = b.position[0];
-  }
-  const riverPadding = 120;
-  const riverXExtent = (bMaxX - bMinX) + riverPadding * 2;
-  const riverCenterX = (bMinX + bMaxX) / 2;
+  // ── River: runs along the Z-axis cross-road (horizontal water channel) ──
+  const riverWidth = 60;
+  const riverXExtent = extentX * 2 + 200;
   const river: CityRiver = {
-    x: riverCenterX - riverXExtent / 2,
+    x: -riverXExtent / 2,
     width: riverXExtent,
-    length: RIVER_WIDTH,
-    centerZ: riverCenterZ,
+    length: riverWidth,
+    centerZ: 0,
   };
 
-  // ── Bridges ──
-  const bridgeWidth = RIVER_WIDTH + 20;
-  const bridgeSpacing = Math.max(300, riverXExtent / 4);
+  // ── Bridges: where roads cross the river ──
+  const bridgeWidth = riverWidth + 20;
   const bridges: CityBridge[] = [
-    { position: [riverCenterX, 0, riverCenterZ], width: bridgeWidth, rotation: Math.PI / 2 },
-    { position: [riverCenterX + bridgeSpacing, 0, riverCenterZ], width: bridgeWidth, rotation: Math.PI / 2 },
-    { position: [riverCenterX - bridgeSpacing, 0, riverCenterZ], width: bridgeWidth, rotation: Math.PI / 2 },
+    { position: [0, 0, 0], width: bridgeWidth, rotation: Math.PI / 2 },
+    { position: [extentX * 0.5, 0, 0], width: bridgeWidth, rotation: Math.PI / 2 },
+    { position: [-extentX * 0.5, 0, 0], width: bridgeWidth, rotation: Math.PI / 2 },
   ];
 
-  // ── Canals: water bodies scattered throughout the city ──
-  // 1. Perpendicular canals branching off the main river at district boundaries
-  const canalSeed = 55555;
-  for (let di = 0; di < districtZones.length; di++) {
-    const dz = districtZones[di];
-    const cx = dz.center[0];
-    const cz = dz.center[2];
-    // Skip districts too close to center (main river handles those)
-    if (Math.abs(cx) < 100 && Math.abs(cz) < 150) continue;
-
-    // Branch canal from district center toward the river (vertical canal)
-    const canalLength = Math.min(180, Math.abs(cz) * 0.6);
-    if (canalLength > 40) {
-      const canalZ = cz > 0
-        ? cz - canalLength / 2
-        : cz + canalLength / 2;
-      canals.push({
-        position: [cx, 0.4, canalZ],
-        width: 25 + seededRandom(canalSeed + di * 7) * 15,
-        length: canalLength,
-        rotation: 0, // vertical (along Z axis)
-      });
-    }
-  }
-
-  // 2. Small decorative ponds/lakes near plazas (not the first one — that has a fountain)
-  for (let pi = 1; pi < plazas.length; pi++) {
-    const pSeed = canalSeed + pi * 113;
-    // ~40% of plazas get a nearby pond
-    if (seededRandom(pSeed) > 0.4) continue;
-    const [px, , pz] = plazas[pi].position;
-    // Offset the pond slightly from the plaza center
-    const pondOffX = (seededRandom(pSeed + 1) - 0.5) * 40;
-    const pondOffZ = (seededRandom(pSeed + 2) - 0.5) * 40;
-    const pondX = px + pondOffX;
-    const pondZ = pz + pondOffZ;
-    // Don't place ponds in the river channel
-    if (Math.abs(pondZ) < 100) continue;
-    canals.push({
-      position: [pondX, 0.3, pondZ],
-      width: 20 + seededRandom(pSeed + 3) * 20,
-      length: 25 + seededRandom(pSeed + 4) * 30,
-      rotation: seededRandom(pSeed + 5) * Math.PI,
-    });
-  }
-
-  // 3. Horizontal canal segments running parallel to the main river at +/- offsets
-  const parallelOffsets = [300, -300, 500, -500];
-  for (let oi = 0; oi < parallelOffsets.length; oi++) {
-    const offZ = parallelOffsets[oi];
-    // Only add if there are buildings that far out
-    const hasBuildingsNear = buildings.some(b => Math.abs(b.position[2] - offZ) < 120);
-    if (!hasBuildingsNear) continue;
-    const segLength = riverXExtent * 0.5;
-    const segX = riverCenterX + (seededRandom(canalSeed + oi * 37) - 0.5) * 100;
-    canals.push({
-      position: [segX, 0.35, offZ],
-      width: 18 + seededRandom(canalSeed + oi * 53) * 12,
-      length: segLength,
-      rotation: Math.PI / 2, // horizontal (along X axis)
-    });
-  }
+  // ── Canals: perpendicular water channel along X axis ──
+  canals.push({
+    position: [0, 0.4, 0],
+    width: 40,
+    length: extentZ * 2 + 200,
+    rotation: 0,
+  });
 
   return { buildings, plazas, decorations, districtZones, river, bridges, canals };
 }
+
 
 // ─── Building Dimensions (reusable for shop preview) ────────
 

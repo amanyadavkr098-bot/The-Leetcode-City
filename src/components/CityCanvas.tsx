@@ -39,7 +39,6 @@ import WhiteRabbit from "./WhiteRabbit";
 import CelebrationEffect from "./CelebrationEffect";
 import WallpaperParallax from "./WallpaperParallax";
 
-import { VidhanaSoudha, BangalorePalace, TipuSultanFortWall, GatewayOfIndia, Charminar, IndiaGate, MarinaLighthouse, ShaniwarWada, IsroRocket } from "./Monuments";
 import BusTransit from "./BusTransit";
 import InterCityConnections from "./InterCityConnections";
 import MetroSystem from "./MetroSystem";
@@ -1192,11 +1191,25 @@ function CameraReset() {
 function Ground({ color, grid1, grid2 }: { color: string; grid1: string; grid2: string }) {
   return (
     <group>
+      {/* City ground — compact island */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]}>
-        <planeGeometry args={[20000, 20000]} />
+        <planeGeometry args={[6000, 6000]} />
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.15} roughness={0.95} />
       </mesh>
       <gridHelper args={[4000, 200, grid1, grid2]} position={[0, -0.5, 0]} />
+      {/* Ocean — flat infinite water plane surrounding the city */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} renderOrder={-1}>
+        <planeGeometry args={[80000, 80000]} />
+        <meshStandardMaterial
+          color="#0a2a4a"
+          emissive="#0a3060"
+          emissiveIntensity={0.4}
+          roughness={0.3}
+          metalness={0.2}
+          transparent
+          opacity={0.92}
+        />
+      </mesh>
     </group>
   );
 }
@@ -1405,202 +1418,6 @@ function AutoRickshaw({ position, rotation }: { position: [number, number, numbe
   );
 }
 
-// Chai stall: roadside tea stall with awning
-function ChaiStall({ position, rotation }: { position: [number, number, number]; rotation: number }) {
-  return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      {/* Counter */}
-      <mesh position={[0, 1.5, 0]}>
-        <boxGeometry args={[6, 3, 3.5]} />
-        <meshStandardMaterial color="#8b6914" emissive="#8b6914" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Awning poles */}
-      <mesh position={[-2.5, 4, -1.5]}>
-        <cylinderGeometry args={[0.15, 0.15, 5, 4]} />
-        <meshStandardMaterial color="#555" emissive="#555" emissiveIntensity={0.2} />
-      </mesh>
-      <mesh position={[2.5, 4, -1.5]}>
-        <cylinderGeometry args={[0.15, 0.15, 5, 4]} />
-        <meshStandardMaterial color="#555" emissive="#555" emissiveIntensity={0.2} />
-      </mesh>
-      {/* Awning (tilted canvas) */}
-      <mesh position={[0, 6, 0]} rotation={[-0.2, 0, 0]}>
-        <boxGeometry args={[7, 0.15, 5]} />
-        <meshStandardMaterial color="#c04020" emissive="#c04020" emissiveIntensity={0.4} />
-      </mesh>
-      {/* Warm light glow */}
-      <mesh position={[0, 3.2, 1.3]}>
-        <boxGeometry args={[1, 0.6, 0.3]} />
-        <meshStandardMaterial color="#ffa040" emissive="#ffa040" emissiveIntensity={2.0} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-// Temple gopuram: stepped temple tower — scaled 12× to be visible at city scale
-function TempleGopuram({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position} scale={[12, 12, 12]}>
-      {/* Base */}
-      <mesh position={[0, 2.5, 0]}>
-        <boxGeometry args={[8, 5, 8]} />
-        <meshStandardMaterial color="#d4a054" emissive="#d4a054" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Tier 1 */}
-      <mesh position={[0, 6.5, 0]}>
-        <boxGeometry args={[6.5, 3, 6.5]} />
-        <meshStandardMaterial color="#c89040" emissive="#c89040" emissiveIntensity={0.35} />
-      </mesh>
-      {/* Tier 2 */}
-      <mesh position={[0, 9.5, 0]}>
-        <boxGeometry args={[5, 3, 5]} />
-        <meshStandardMaterial color="#bc8030" emissive="#bc8030" emissiveIntensity={0.35} />
-      </mesh>
-      {/* Tier 3 (smaller) */}
-      <mesh position={[0, 12, 0]}>
-        <boxGeometry args={[3.5, 2.5, 3.5]} />
-        <meshStandardMaterial color="#b07020" emissive="#b07020" emissiveIntensity={0.4} />
-      </mesh>
-      {/* Kalasham (dome finial) */}
-      <mesh position={[0, 14.2, 0]}>
-        <sphereGeometry args={[1.2, 8, 6]} />
-        <meshStandardMaterial color="#ffa116" emissive="#ffa116" emissiveIntensity={1.5} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-// Tech park sign: glowing corporate sign post
-function TechParkSign({ position, rotation }: { position: [number, number, number]; rotation: number }) {
-  return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      {/* Post */}
-      <mesh position={[0, 5, 0]}>
-        <cylinderGeometry args={[0.3, 0.4, 10, 6]} />
-        <meshStandardMaterial color="#606060" emissive="#606060" emissiveIntensity={0.25} />
-      </mesh>
-      {/* Sign board */}
-      <mesh position={[0, 10.5, 0]}>
-        <boxGeometry args={[8, 3, 0.4]} />
-        <meshStandardMaterial color="#1a1a2e" emissive="#1a1a2e" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Glowing text strip */}
-      <mesh position={[0, 10.5, 0.3]}>
-        <boxGeometry args={[6, 1.2, 0.1]} />
-        <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={2.5} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-// ─── Bengaluru Monuments ──────────────────────────────────────
-
-// Nandi Bull: stone bull statue on a platform — scaled 10.5× to be visible at city scale
-function NandiBull({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position} scale={[10.5, 10.5, 10.5]}>
-      {/* Platform */}
-      <mesh position={[0, 0.6, 0]}>
-        <boxGeometry args={[10, 1.2, 8]} />
-        <meshStandardMaterial color="#8a8078" emissive="#8a8078" emissiveIntensity={0.25} />
-      </mesh>
-      {/* Body */}
-      <mesh position={[0, 3.2, 0]}>
-        <boxGeometry args={[7, 4, 4.5]} />
-        <meshStandardMaterial color="#6b6560" emissive="#6b6560" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Head */}
-      <mesh position={[4, 4.2, 0]}>
-        <boxGeometry args={[3, 3, 3]} />
-        <meshStandardMaterial color="#5d5855" emissive="#5d5855" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Horns */}
-      <mesh position={[4.5, 6, -0.8]} rotation={[0, 0, 0.3]}>
-        <coneGeometry args={[0.3, 2.5, 6]} />
-        <meshStandardMaterial color="#d4c8a0" emissive="#d4c8a0" emissiveIntensity={0.5} />
-      </mesh>
-      <mesh position={[4.5, 6, 0.8]} rotation={[0, 0, 0.3]}>
-        <coneGeometry args={[0.3, 2.5, 6]} />
-        <meshStandardMaterial color="#d4c8a0" emissive="#d4c8a0" emissiveIntensity={0.5} />
-      </mesh>
-      {/* Legs */}
-      {[[-2, 0, 1.5], [-2, 0, -1.5], [2, 0, 1.5], [2, 0, -1.5]].map(([lx, , lz], li) => (
-        <mesh key={li} position={[lx, 1.2, lz]}>
-          <boxGeometry args={[1.2, 2.4, 1.2]} />
-          <meshStandardMaterial color="#5d5855" emissive="#5d5855" emissiveIntensity={0.3} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// Gateway Arch: tech corridor entrance arch — scaled 9× to be visible at city scale
-function GatewayArch({ position, rotation }: { position: [number, number, number]; rotation: number }) {
-  return (
-    <group position={position} rotation={[0, rotation, 0]} scale={[9, 9, 9]}>
-      {/* Left pillar */}
-      <mesh position={[-6, 8, 0]}>
-        <boxGeometry args={[2.5, 16, 2.5]} />
-        <meshStandardMaterial color="#c0a870" emissive="#c0a870" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Right pillar */}
-      <mesh position={[6, 8, 0]}>
-        <boxGeometry args={[2.5, 16, 2.5]} />
-        <meshStandardMaterial color="#c0a870" emissive="#c0a870" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Top arch beam */}
-      <mesh position={[0, 16.5, 0]}>
-        <boxGeometry args={[15, 2, 3]} />
-        <meshStandardMaterial color="#b89860" emissive="#b89860" emissiveIntensity={0.35} />
-      </mesh>
-      {/* Decorative top */}
-      <mesh position={[0, 18.5, 0]}>
-        <boxGeometry args={[10, 1.5, 2]} />
-        <meshStandardMaterial color="#a08850" emissive="#a08850" emissiveIntensity={0.35} />
-      </mesh>
-      {/* Glowing crest */}
-      <mesh position={[0, 19.8, 0]}>
-        <sphereGeometry args={[1.5, 8, 6]} />
-        <meshStandardMaterial color="#ffa116" emissive="#ffa116" emissiveIntensity={2.0} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-// Clock Tower: heritage clock tower with glowing face — scaled 10.5× to be visible at city scale
-function ClockTower({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position} scale={[10.5, 10.5, 10.5]}>
-      {/* Base */}
-      <mesh position={[0, 3, 0]}>
-        <boxGeometry args={[6, 6, 6]} />
-        <meshStandardMaterial color="#9a7050" emissive="#9a7050" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Middle shaft */}
-      <mesh position={[0, 10, 0]}>
-        <boxGeometry args={[4.5, 8, 4.5]} />
-        <meshStandardMaterial color="#8a6040" emissive="#8a6040" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Clock face (4 sides) */}
-      {[[0, 0, 2.4], [0, 0, -2.4], [2.4, 0, 0], [-2.4, 0, 0]].map(([fx, , fz], fi) => (
-        <mesh key={fi} position={[fx, 12, fz]}>
-          <boxGeometry args={[fz !== 0 ? 2.5 : 0.3, 2.5, fz !== 0 ? 0.3 : 2.5]} />
-          <meshStandardMaterial color="#f0e8c0" emissive="#f0e8c0" emissiveIntensity={1.8} toneMapped={false} />
-        </mesh>
-      ))}
-      {/* Pointed roof */}
-      <mesh position={[0, 16, 0]}>
-        <coneGeometry args={[3.5, 5, 4]} />
-        <meshStandardMaterial color="#7a5030" emissive="#7a5030" emissiveIntensity={0.35} />
-      </mesh>
-      {/* Spire */}
-      <mesh position={[0, 19.5, 0]}>
-        <coneGeometry args={[0.4, 3, 6]} />
-        <meshStandardMaterial color="#ffa116" emissive="#ffa116" emissiveIntensity={2.0} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
 
 // ─── River, Waterfront and Bridge Rendering ──────────────────
 
@@ -1990,21 +1807,6 @@ function Decorations({ items }: { items: CityDecoration[] }) {
           case 'fountain': return <Fountain key={`fountain-${i}`} position={d.position} />;
           case 'sidewalk': return <Sidewalk key={`walk-${i}`} position={d.position} size={d.size!} />;
           case 'autoRickshaw': return <AutoRickshaw key={`rick-${i}`} position={d.position} rotation={d.rotation} />;
-          case 'chaiStall': return <ChaiStall key={`chai-${i}`} position={d.position} rotation={d.rotation} />;
-          case 'templeGopuram': return <TempleGopuram key={`temple-${i}`} position={d.position} />;
-          case 'techParkSign': return <TechParkSign key={`sign-${i}`} position={d.position} rotation={d.rotation} />;
-          case 'nandiBull': return <NandiBull key={`nandi-${i}`} position={d.position} />;
-          case 'gatewayArch': return <GatewayArch key={`gate-${i}`} position={d.position} rotation={d.rotation} />;
-          case 'clockTower': return <ClockTower key={`clock-${i}`} position={d.position} />;
-          case 'vidhanaSoudha': return <VidhanaSoudha key={`vidhana-${i}`} position={d.position} />;
-          case 'bangalorePalace': return <BangalorePalace key={`palace-${i}`} position={d.position} />;
-          case 'tipuFortWall': return <TipuSultanFortWall key={`wall-${i}`} position={d.position} rotation={d.rotation} />;
-          case 'gatewayOfIndia': return <GatewayOfIndia key={`gate-ind-${i}`} position={d.position} />;
-          case 'charminar': return <Charminar key={`charminar-${i}`} position={d.position} />;
-          case 'indiaGate': return <IndiaGate key={`india-gate-${i}`} position={d.position} />;
-          case 'marinaLighthouse': return <MarinaLighthouse key={`lighthouse-${i}`} position={d.position} />;
-          case 'shaniwarWada': return <ShaniwarWada key={`shaniwar-${i}`} position={d.position} />;
-          case 'isroRocket': return <IsroRocket key={`isro-${i}`} position={d.position} />;
           case 'busStop': return null; // Handled separately in BusTransit component to make it interactive!
           default: return null;
         }

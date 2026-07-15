@@ -26,11 +26,11 @@ interface LoadingScreenProps {
 // ─── Constants ─────────────────────────────────────────────────
 
 const STAGE_MESSAGES: Record<string, string> = {
-  init: "Checking your browser...",
-  fetching: "Fetching profiles...",
-  generating: "Laying down streets...",
-  rendering: "Building the skyline...",
-  ready: "Welcome to the city",
+  init: "INITIALIZING RENDERER...",
+  fetching: "FETCHING PROFILES...",
+  generating: "LAYING DOWN STREETS...",
+  rendering: "BUILDING THE SKYLINE...",
+  ready: "WELCOME TO THE CITY",
 };
 
 const TIPS = [
@@ -43,21 +43,14 @@ const TIPS = [
   "Explore Mode shows the full city layout",
 ];
 
-// Pixel-art skyline building configs: [width, height, left%]
-const SKYLINE_BUILDINGS: [number, number, number][] = [
-  [28, 40, 2],
-  [20, 65, 8],
-  [32, 85, 14],
-  [18, 50, 22],
-  [24, 70, 28],
-  [36, 110, 35],
-  [22, 55, 44],
-  [26, 75, 50],
-  [30, 95, 58],
-  [20, 45, 66],
-  [34, 80, 72],
-  [24, 60, 80],
-  [28, 90, 87],
+// ASCII art city skyline
+const ASCII_SKYLINE = [
+  "    ║         ╔═╗   ╔══╗      ║     ╔═╗        ",
+  "   ╔╣    ╔╗   ║ ║  ╔╣  ║   ╔══╣    ╔╣ ╠╗   ╔╗  ",
+  "  ╔╣║   ╔╣║  ╔╣ ║  ║║  ║  ╔╣  ║   ╔╣║ ║║  ╔╣║  ",
+  " ╔╣║║  ╔╣║║  ║║ ║ ╔╣║  ║ ╔╣║  ║  ╔╣║║ ║║ ╔╣║║  ",
+  " ║║║║  ║║║║  ║║ ║ ║║║  ║ ║║║  ║  ║║║║ ║║ ║║║║  ",
+  "═╩╩╩╩══╩╩╩╩══╩╩═╩═╩╩╩══╩═╩╩╩══╩══╩╩╩╩═╩╩═╩╩╩╩══",
 ];
 
 // ─── Component ─────────────────────────────────────────────────
@@ -72,12 +65,21 @@ export default function LoadingScreen({
 }: LoadingScreenProps) {
   const [tipIndex, setTipIndex] = useState(0);
   const [fading, setFading] = useState(false);
+  const [dots, setDots] = useState("");
 
   // Rotate tips every 4s
   useEffect(() => {
     const interval = setInterval(() => {
       setTipIndex((i) => (i + 1) % TIPS.length);
     }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Animated dots
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "" : d + "."));
+    }, 400);
     return () => clearInterval(interval);
   }, []);
 
@@ -97,6 +99,12 @@ export default function LoadingScreen({
   const isError = stage === "error";
   const message = isError ? error : STAGE_MESSAGES[stage] ?? "";
 
+  // Build pixel progress bar with block characters
+  const barWidth = 30;
+  const filledBlocks = Math.floor((Math.min(100, progress) / 100) * barWidth);
+  const emptyBlocks = barWidth - filledBlocks;
+  const progressBar = "█".repeat(filledBlocks) + "░".repeat(emptyBlocks);
+
   return (
     <div
       className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#070709] transition-opacity duration-[600ms] ${
@@ -104,55 +112,66 @@ export default function LoadingScreen({
       }`}
       onTransitionEnd={handleTransitionEnd}
     >
-      {/* Skyline silhouette */}
-      <div className="absolute bottom-0 left-0 right-0 h-[140px] overflow-hidden opacity-20">
-        {SKYLINE_BUILDINGS.map(([w, h, left], i) => (
-          <div
-            key={i}
-            className="absolute bottom-0"
-            style={{
-              width: w,
-              height: h,
-              left: `${left}%`,
-              backgroundColor: accentColor,
-              // Pixel-art stepped top
-              clipPath:
-                i % 3 === 0
-                  ? "polygon(0 8px, 30% 8px, 30% 0, 70% 0, 70% 8px, 100% 8px, 100% 100%, 0 100%)"
-                  : i % 3 === 1
-                    ? "polygon(0 4px, 50% 4px, 50% 0, 100% 0, 100% 100%, 0 100%)"
-                    : undefined,
-            }}
-          />
-        ))}
+      {/* CRT scanline overlay */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%)",
+          backgroundSize: "100% 4px",
+        }}
+      />
+
+      {/* ASCII Skyline */}
+      <div className="mb-8 overflow-hidden opacity-25">
+        <pre
+          className="text-[8px] leading-[10px] tracking-widest sm:text-[10px] sm:leading-[12px]"
+          style={{ color: accentColor, fontFamily: "monospace" }}
+        >
+          {ASCII_SKYLINE.join("\n")}
+        </pre>
       </div>
 
       {/* Title */}
-      <h1
-        className="font-pixel text-3xl tracking-[0.2em] sm:text-4xl"
-        style={{ color: accentColor }}
-      >
-        LEETCODE CITY
-      </h1>
+      <div className="text-center">
+        <p
+          className="text-[9px] tracking-[0.35em] uppercase mb-3 opacity-50"
+          style={{ color: accentColor, fontFamily: "monospace" }}
+        >
+          LOADING
+        </p>
+        <h1
+          className="text-2xl tracking-[0.15em] font-bold sm:text-4xl"
+          style={{ color: "#e8dcc8", fontFamily: "monospace" }}
+        >
+          LEETCODE{" "}
+          <span style={{ color: accentColor }}>CITY</span>
+        </h1>
+      </div>
 
       {/* Stage message */}
-      <p className="mt-4 font-pixel text-xs tracking-wider text-neutral-400 sm:text-sm">
-        {message}
+      <p
+        className="mt-5 text-[10px] tracking-[0.2em] uppercase sm:text-xs"
+        style={{ color: accentColor, fontFamily: "monospace", opacity: 0.8 }}
+      >
+        {message}{!isError && dots}
       </p>
 
-      {/* Progress bar (hidden on error) */}
+      {/* Pixel progress bar */}
       {!isError && (
-        <div
-          className="mt-6 h-4 w-56 sm:w-72"
-          style={{ border: `3px solid ${accentColor}` }}
-        >
+        <div className="mt-5 flex flex-col items-center gap-1">
           <div
-            className="h-full transition-[width] duration-300"
-            style={{
-              width: `${Math.min(100, progress)}%`,
-              backgroundColor: accentColor,
-            }}
-          />
+            className="text-xs sm:text-sm"
+            style={{ color: accentColor, fontFamily: "monospace", letterSpacing: "1px" }}
+          >
+            [{progressBar}]
+          </div>
+          <p
+            className="text-[10px] tracking-widest"
+            style={{ color: accentColor, fontFamily: "monospace", opacity: 0.6 }}
+          >
+            {Math.min(100, Math.round(progress))}%
+          </p>
         </div>
       )}
 
@@ -160,19 +179,33 @@ export default function LoadingScreen({
       {isError && (
         <button
           onClick={onRetry}
-          className="btn-press mt-6 px-6 py-2 font-pixel text-xs text-[#070709]"
-          style={{ backgroundColor: accentColor }}
+          className="mt-6 border-2 px-6 py-2 text-xs tracking-widest uppercase transition-colors hover:opacity-80"
+          style={{
+            borderColor: accentColor,
+            color: accentColor,
+            fontFamily: "monospace",
+            backgroundColor: "transparent",
+          }}
         >
-          Retry
+          [ RETRY ]
         </button>
       )}
 
       {/* Tips rotator */}
       {!isError && (
-        <p className="mt-8 max-w-xs text-center font-pixel text-[10px] leading-relaxed tracking-wide text-neutral-600 sm:text-xs">
-          {TIPS[tipIndex]}
+        <p
+          className="mt-8 max-w-xs text-center text-[9px] leading-relaxed tracking-wide sm:text-[10px]"
+          style={{ color: "#e8dcc8", fontFamily: "monospace", opacity: 0.35 }}
+        >
+          TIP: {TIPS[tipIndex]}
         </p>
       )}
+
+      {/* Bottom border accent */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-[2px]"
+        style={{ backgroundColor: accentColor, opacity: 0.4 }}
+      />
     </div>
   );
 }
