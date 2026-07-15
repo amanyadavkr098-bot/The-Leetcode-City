@@ -334,7 +334,7 @@ function ShopPreviewScene({
 
       <OrbitControls
         enablePan={false}
-        enableRotate={!isBungalow}
+        enableRotate={true}
         minDistance={isBungalow ? Math.max(40, W * 1.2) : Math.max(15, H * 0.15)}
         maxDistance={isBungalow ? Math.max(300, W * 4) : Math.max(300, Math.max(H, W) * 4)}
         minPolarAngle={isBungalow ? Math.PI / 3.5 : 0.05}
@@ -506,3 +506,6 @@ export default function ShopPreview({
     </div>
   );
 }
+
+
+
