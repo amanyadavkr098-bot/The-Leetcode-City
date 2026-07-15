@@ -131,8 +131,35 @@ export default function CityHUD() {
 
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 640 || "ontouchstart" in window : false;
 
+  // ESC key to exit explore mode
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && exploreMode && !flyMode) {
+        setExploreMode(false);
+        setFocusedBuilding(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [exploreMode, flyMode, setExploreMode, setFocusedBuilding]);
+
   return (
     <>
+      {/* ─── ESC BACK Button (visible during explore mode) ─── */}
+      {exploreMode && !flyMode && !introMode && !rabbitCinematic && (
+        <button
+          onClick={() => {
+            setExploreMode(false);
+            setFocusedBuilding(null);
+          }}
+          className="pointer-events-auto fixed top-3 left-3 z-[40] flex items-center gap-1.5 border-[2px] border-border bg-bg/90 px-3 py-1.5 text-[10px] tracking-wider text-cream backdrop-blur-sm transition-colors hover:bg-white/10 active:bg-white/5"
+          style={{ boxShadow: `2px 2px 0 0 ${theme.shadow}` }}
+        >
+          <kbd className="text-[9px] opacity-60">ESC</kbd>
+          <span style={{ color: theme.accent }}>BACK</span>
+        </button>
+      )}
+
       {/* ─── Main Landing Panel ─── */}
       {!flyMode && !exploreMode && !introMode && !rabbitCinematic && (
         <div
