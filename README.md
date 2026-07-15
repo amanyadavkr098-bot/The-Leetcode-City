@@ -21,8 +21,24 @@
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="public/screenshots/city-view.png" alt="3D pixel-art city skyline view" width="800" />
+  <br /><em>The 3D pixel-art city — every developer's LeetCode profile becomes a building</em>
+</p>
+
+<p align="center">
+  <img src="public/screenshots/developer-profile.png" alt="Developer profile card showing stats" width="400" />
+  <img src="public/screenshots/compare-dashboard.png" alt="Comparison dashboard between two developers" width="400" />
+  <br /><em>Developer profile cards (left) and head-to-head comparison (right)</em>
+</p>
+
+---
+
 ## Table of Contents 
 
+- <a href="#-screenshots">📸 Screenshots</a>
 - <a href="#what-is-leetcode-city">What is LeetCode City?</a>
 - <a href="#features">Features</a>
 - <a href="#how-buildings-work">How Buildings Work</a>
@@ -480,7 +496,7 @@ The `.env.example` file comes **pre-filled with public read-only keys** so you c
 | 3D rendering & animations | Raids & interactions |
 | Leaderboard & search | API route writes |
 
-> **Need full access?** contact me on [LinkedIn](https://www.linkedin.com/in/ishant-singh-bisht-247a4b322/) for the service role key.
+> **Need full access?** DM me on [LinkedIn](https://www.linkedin.com/in/ishant-singh-bisht-247a4b322/) for the service role key.
 
 ---
 

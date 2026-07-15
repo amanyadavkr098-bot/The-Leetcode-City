@@ -232,8 +232,10 @@ export default function ProfileCard() {
 
   const isOwnBuilding =
     !!selectedBuilding &&
-    !!linkedLeetCodeUsername &&
-    selectedBuilding.login.toLowerCase() === linkedLeetCodeUsername.toLowerCase();
+    (
+      (!!linkedLeetCodeUsername && selectedBuilding.login.toLowerCase() === linkedLeetCodeUsername.toLowerCase()) ||
+      (!!authLogin && selectedBuilding.login.toLowerCase() === authLogin)
+    );
 
   return (
     <>
