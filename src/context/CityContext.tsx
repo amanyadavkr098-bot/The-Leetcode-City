@@ -621,12 +621,12 @@ export function CityProvider({ children }: { children: ReactNode }) {
   const identityResolved = sessionResolved && (!session || linkStatusResolved);
 
   const isOwnBuilding = useMemo(() => {
-    return (
-      !!selectedBuilding &&
-      !!linkedLeetCodeUsername &&
-      selectedBuilding.login.toLowerCase() === linkedLeetCodeUsername.toLowerCase()
-    );
-  }, [selectedBuilding, linkedLeetCodeUsername]);
+    if (!selectedBuilding) return false;
+    const buildingLogin = selectedBuilding.login.toLowerCase();
+    const matchesAuth = !!authLogin && buildingLogin === authLogin;
+    const matchesLinked = !!linkedLeetCodeUsername && buildingLogin === linkedLeetCodeUsername.toLowerCase();
+    return matchesAuth || matchesLinked;
+  }, [selectedBuilding, authLogin, linkedLeetCodeUsername]);
 
   const myBuilding = useMemo(() => {
     return linkedLeetCodeUsername
