@@ -207,30 +207,30 @@ useGLTF.preload("/models/paper-plane.glb");
 const INTRO_DURATION = 14; // seconds
 
 // Founder building sits at roughly (146, h, -66) in the first block.
-// Camera target: city center at a moderate height for overview.
-const FOUNDER_X = 0;
-const FOUNDER_Z = 0;
+// Camera target: founder building top.
+const FOUNDER_X = 146;
+const FOUNDER_Z = -66;
 const TARGET_X = FOUNDER_X;
 const TARGET_Z = FOUNDER_Z;
-const TARGET_Y = 50;
+const TARGET_Y = 450;
 
-// Arc sweep: camera arcs ~180° around the compact city
-// Far away -> descends through buildings -> rises to wide panorama
+// Arc sweep: camera arcs ~180° around the city
+// Far left in fog -> descends through buildings -> rises to wide panorama centered on founder
 const INTRO_WAYPOINTS: [number, number, number][] = [
-  [-800, 500, 800],    // WP0: Far, high, left - city hidden in fog
-  [-500, 400, 600],    // WP1: Descending, silhouette appears
-  [-300, 350, 450],    // WP2: Buildings becoming clear
-  [-100, 300, 350],    // WP3: Skirting the city edge
-  [100, 300, 350],     // WP4: Crossing over
-  [250, 350, 400],     // WP5: Rising, pulling back
-  [350, 400, 500],     // WP6: Dramatic pullback
-  [400, 350, 500],     // WP7: Final orbit position (wide panorama)
+  [-1600, 800, 1800],   // WP0: Far, high, left - city hidden in fog
+  [-1000, 700, 1300],   // WP1: Descending, silhouette appears
+  [-600, 600, 900],    // WP2: Ad plane level, buildings becoming clear
+  [-200, 550, 650],    // WP3: Skirting the city edge
+  [200, 600, 600],    // WP4: Crossing over
+  [500, 700, 700],    // WP5: Rising, pulling back
+  [700, 800, 900],    // WP6: Dramatic pullback
+  [800, 850, 1000],   // WP7: Final orbit position (wide panorama)
 ];
 
 // Look targets smoothly converge toward the founder building top
 const INTRO_LOOK_TARGETS: [number, number, number][] = [
-  [0, 100, 0],      // WP0: Toward city center
-  [TARGET_X, 80, TARGET_Z],  // WP1: Rising toward city center
+  [100, 300, -200],      // WP0: Toward distant city, already high
+  [TARGET_X, 380, TARGET_Z],  // WP1: Rising toward founder top
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP2: Locking on
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP3: Holding
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP4: Holding
@@ -357,8 +357,8 @@ function RabbitFlyover({
   );
 
   useEffect(() => {
-    camera.position.set(500, 400, 600);
-    camera.lookAt(0, 50, 0);
+    camera.position.set(800, 700, 1000);
+    camera.lookAt(0, 200, 0);
   }, [camera]);
 
   useFrame((_, delta) => {
@@ -2255,7 +2255,7 @@ function WallpaperOrbitScene({ speed }: { speed: number }) {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(500, 400, 600);
+    camera.position.set(800, 700, 1000);
     camera.lookAt(TARGET_X, TARGET_Y, TARGET_Z);
   }, [camera]);
 
@@ -2534,7 +2534,7 @@ export default function CityCanvas({
       aria-label="3D LeetCode City — use arrow keys to move between buildings, Enter to open a profile, Escape to close. Press Tab to leave the city."
       tabIndex={0}
       onKeyDown={handleCanvasKeyDown}
-      camera={{ position: [400, 350, 500], fov: 55, near: 1.0, far: 6100 }}
+      camera={{ position: [400, 450, 600], fov: 55, near: 1.0, far: 6100 }}
       dpr={[1, 1.5]}
       onCreated={({ gl, scene }) => {
         try {
@@ -2777,8 +2777,8 @@ export default function CityCanvas({
           />
 
           <InterCityConnections />
-          <MetroSystem buildings={buildings} />
-          <TramSystem buildings={buildings} />
+          <MetroSystem />
+          <TramSystem />
           {!wallpaperMode && skyAds && skyAds.length > 0 && (
             <>
               <SkyAds ads={skyAds} cityRadius={cityRadius} flyMode={flyMode} onAdClick={onAdClick} onAdViewed={onAdViewed} />
