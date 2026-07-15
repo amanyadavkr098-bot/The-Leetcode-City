@@ -528,7 +528,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
   const occupiedCells = new Set<string>();
   let globalDevIndex = 0;
   let globalBlockSeed = 0;
-  const allBlocks: { cx: number; cz: number; gx: number; gz: number; district: string }[] = [];
+  const allBlocks: { cx: number; cz: number; gx: number; gz: number; district: string; signX: number; signZ: number }[] = [];
 
   // Spacing for central river
   const RIVER_WIDTH = 120;
@@ -765,28 +765,19 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     globalDevIndex += blockDevs.length;
   }
 
-  // ── Helper: place a spiral of devs at grid origin (ogx, ogz) ──
+  // ── Helper: place a spiral of devs at grid origin (ogx, ogz) divided into 4 quadrants ──
   function placeSpiralCluster(
     clusterDevs: DeveloperRecord[],
     ogx: number, ogz: number,
     addPlaza: boolean,
     districtName: string,
   ) {
-    // Plaza at origin cell
-    if (addPlaza) {
-      const key = `${districtName}:${ogx},${ogz}`;
-      occupiedCells.add(key);
-      
-      // Block adjacent cells for a plaza buffer zone (So monuments don't overlap buildings)
-      occupiedCells.add(`${districtName}:${ogx + 1},${ogz}`);
-      occupiedCells.add(`${districtName}:${ogx - 1},${ogz}`);
-      occupiedCells.add(`${districtName}:${ogx},${ogz + 1}`);
-      occupiedCells.add(`${districtName}:${ogx},${ogz - 1}`);
+    const origin = DISTRICT_ORIGINS[districtName] || [0, 0, 0];
 
-      const [pcx, plazaZ] = gridToWorld(ogx, ogz);
-      const origin = DISTRICT_ORIGINS[districtName] || [0, 0, 0];
-      const px = pcx + origin[0];
-      const pcz = plazaZ + origin[2];
+    // Plaza at center of the district [0, 0] relative
+    if (addPlaza) {
+      const px = origin[0];
+      const pcz = origin[2];
       plazas.push({
         position: [px, 0, pcz],
         size: Math.min(BLOCK_FOOTPRINT_X, BLOCK_FOOTPRINT_Z) * 0.8,
@@ -795,39 +786,74 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
         city: DISTRICT_NAMES[districtName] ?? districtName,
       });
       districtPlazas.set(districtName, [px, 0, pcz]);
-      allBlocks.push({ cx: px, cz: pcz, gx: ogx, gz: ogz, district: districtName });
+      allBlocks.push({ cx: px, cz: pcz, gx: ogx, gz: ogz, district: districtName, signX: 0, signZ: 0 });
       globalBlockSeed++;
     }
 
-    let devIdx = 0;
-    let spiralIdx = 0;
+    // Split devs of this district into 4 quadrants round-robin
+    const quadrantDevs: DeveloperRecord[][] = [[], [], [], []];
+    for (let i = 0; i < clusterDevs.length; i++) {
+      quadrantDevs[i % 4].push(clusterDevs[i]);
+    }
 
-    while (devIdx < clusterDevs.length) {
-      const [bx, by] = spiralCoord(spiralIdx);
-      const gx = ogx + bx;
-      const gz = ogz + by;
-      const key = `${districtName}:${gx},${gz}`;
+    const MAIN_ROAD_WIDTH = 40;
+    const ROAD_HALF = MAIN_ROAD_WIDTH / 2;
 
-      if (occupiedCells.has(key)) { spiralIdx++; continue; }
-      occupiedCells.add(key);
+    // Local function to calculate world coords for a quadrant block
+    function getQuadrantBlockWorld(gx: number, gz: number, signX: number, signZ: number): [number, number] {
+      let wx = 0;
+      if (signX > 0) {
+        wx = ROAD_HALF + gx * (BLOCK_FOOTPRINT_X + STREET_W) + BLOCK_FOOTPRINT_X / 2;
+      } else {
+        wx = -ROAD_HALF - gx * (BLOCK_FOOTPRINT_X + STREET_W) - BLOCK_FOOTPRINT_X / 2;
+      }
 
-      const origin = DISTRICT_ORIGINS[districtName] || [0, 0, 0];
-      let [blockCX, blockCZ] = gridToWorld(gx, gz);
-      blockCX += origin[0];
-      blockCZ += origin[2];
+      let wz = 0;
+      if (signZ > 0) {
+        wz = ROAD_HALF + gz * (BLOCK_FOOTPRINT_Z + STREET_W) + BLOCK_FOOTPRINT_Z / 2;
+      } else {
+        wz = -ROAD_HALF - gz * (BLOCK_FOOTPRINT_Z + STREET_W) - BLOCK_FOOTPRINT_Z / 2;
+      }
 
+      return [wx + origin[0], wz + origin[2]];
+    }
 
-      const jitterSeed = globalBlockSeed * 10000;
-      blockCX += (seededRandom(jitterSeed) - 0.5) * 6;
-      blockCZ += (seededRandom(jitterSeed + 7777) - 0.5) * 6;
+    // Place blocks for each quadrant
+    const quadrantSigns = [
+      [1, 1],   // Q0: NE
+      [-1, 1],  // Q1: NW
+      [1, -1],  // Q2: SE
+      [-1, -1], // Q3: SW
+    ];
 
-      const blockDevs = clusterDevs.slice(devIdx, devIdx + LOTS_PER_BLOCK);
-      placeBlockContent(blockCX, blockCZ, blockDevs, globalBlockSeed);
-      allBlocks.push({ cx: blockCX, cz: blockCZ, gx, gz, district: districtName });
+    for (let q = 0; q < 4; q++) {
+      const qDevs = quadrantDevs[q];
+      if (qDevs.length === 0) continue;
 
-      devIdx += blockDevs.length;
-      spiralIdx++;
-      globalBlockSeed++;
+      const [signX, signZ] = quadrantSigns[q];
+      let devIdx = 0;
+      let spiralIdx = 0;
+
+      while (devIdx < qDevs.length) {
+        const [bx, by] = spiralCoord(spiralIdx);
+        // Ensure non-negative grid coords within the quadrant
+        const gx = Math.abs(bx);
+        const gz = Math.abs(by);
+
+        let [blockCX, blockCZ] = getQuadrantBlockWorld(gx, gz, signX, signZ);
+
+        const jitterSeed = globalBlockSeed * 10000;
+        blockCX += (seededRandom(jitterSeed) - 0.5) * 6;
+        blockCZ += (seededRandom(jitterSeed + 7777) - 0.5) * 6;
+
+        const blockDevs = qDevs.slice(devIdx, devIdx + LOTS_PER_BLOCK);
+        placeBlockContent(blockCX, blockCZ, blockDevs, globalBlockSeed);
+        allBlocks.push({ cx: blockCX, cz: blockCZ, gx, gz, district: districtName, signX, signZ });
+
+        devIdx += blockDevs.length;
+        spiralIdx++;
+        globalBlockSeed++;
+      }
     }
   }
 
@@ -844,13 +870,13 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
   const DASH_GAP = 8;
   const DASH_STEP = DASH_LENGTH + DASH_GAP;
   const blockByGrid = new Map<string, typeof allBlocks[0]>();
-  for (const b of allBlocks) blockByGrid.set(`${b.district}:${b.gx},${b.gz}`, b);
+  for (const b of allBlocks) blockByGrid.set(`${b.district}:${b.signX}:${b.signZ}:${b.gx},${b.gz}`, b);
   for (const block of allBlocks) {
     const halfX = BLOCK_FOOTPRINT_X / 2;
     const halfZ = BLOCK_FOOTPRINT_Z / 2;
     
     // Vertical street segment to the right
-    const right = blockByGrid.get(`${block.district}:${block.gx + 1},${block.gz}`);
+    const right = blockByGrid.get(`${block.district}:${block.signX}:${block.signZ}:${block.gx + 1},${block.gz}`);
     if (right) {
       const roadCX = (block.cx + halfX + right.cx - halfX) / 2;
       const zMin = Math.min(block.cz, right.cz) - halfZ;
@@ -874,7 +900,7 @@ export function generateCityLayout(devs: DeveloperRecord[]): {
     }
     
     // Horizontal street segment to the bottom
-    const bottom = blockByGrid.get(`${block.district}:${block.gx},${block.gz + 1}`);
+    const bottom = blockByGrid.get(`${block.district}:${block.signX}:${block.signZ}:${block.gx},${block.gz + 1}`);
     if (bottom) {
       // Skip roads crossing the river channel (which are handled by bridges)
       if (!((block.gz < 0 && bottom.gz >= 0) || (block.gz >= 0 && bottom.gz < 0))) {

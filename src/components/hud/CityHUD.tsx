@@ -191,21 +191,18 @@ export default function CityHUD() {
                 >
                   Ixotic
                 </a>
-              </p>
-            </div>
-
-            {/* Milestone progress banner */}
-            <div className="hidden sm:flex sm:justify-center w-full">
+              </p>            {/* Milestone progress banner */}
+            <div className="flex justify-center w-full">
               {(() => {
                 if (MILESTONE_MODE === "donation") {
                   const current = stats?.renewal_raised_inr ?? 0;
                   const target = stats?.renewal_target_inr ?? 2900;
                   const pct = Math.min(100, (current / target) * 100);
                   const isDone = current >= target;
-
+ 
                   return (
-                    <div className="pointer-events-auto mt-4 w-full max-w-[320px] rounded border border-border bg-bg/80 p-3 pt-2 shadow-xl backdrop-blur-md">
-                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream">
+                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
+                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
                         <span>
                           {isDone ? "RENEWAL SECURED!" : "WEBSITE RENEWAL GOAL"}
                         </span>
@@ -213,22 +210,22 @@ export default function CityHUD() {
                           {isDone ? "SECURED" : `${Math.round(pct)}% FUNDED`}
                         </span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg shadow-inner">
+                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
                         <div
-                          className="h-full rounded-full transition-all duration-1000 ease-out"
+                          className="h-full transition-all duration-1000 ease-out"
                           style={{
                             width: `${pct}%`,
                             backgroundColor: theme.accent,
-                            boxShadow: `0 0 10px ${theme.accent}`,
+                            boxShadow: `0 0 8px ${theme.accent}60`,
                           }}
                         />
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[8px] text-[#ffa116] uppercase tracking-wider">
+                      <div className="mt-2 flex items-center justify-between text-[8px] text-[#ffa116] uppercase tracking-wider font-bold">
                         <span className="text-dim">
                           ₹{current.toLocaleString()} / ₹{target.toLocaleString()}
                         </span>
                         <a href="/support" className="hover:underline text-right">
-                          SUPPORT THE SIGNAL
+                          SUPPORT THE SIGNAL &rarr;
                         </a>
                       </div>
                     </div>
@@ -239,10 +236,10 @@ export default function CityHUD() {
                   const target = MILESTONES.find((m) => current < m) || 10000;
                   const pct = Math.min(100, (current / target) * 100);
                   const isDone = current >= target;
-
+ 
                   return (
-                    <div className="pointer-events-auto mt-4 w-full max-w-[320px] rounded border border-border bg-bg/80 p-3 pt-2 shadow-xl backdrop-blur-md">
-                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream">
+                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
+                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
                         <span>
                           {isDone ? "GOAL REACHED" : `ROAD TO ${target} STARS`}
                         </span>
@@ -250,17 +247,17 @@ export default function CityHUD() {
                           {Math.max(0, target - current).toLocaleString()} TO GO
                         </span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg shadow-inner">
+                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
                         <div
-                          className="h-full rounded-full transition-all duration-1000 ease-out"
+                          className="h-full transition-all duration-1000 ease-out"
                           style={{
                             width: `${pct}%`,
                             backgroundColor: theme.accent,
-                            boxShadow: `0 0 10px ${theme.accent}`,
+                            boxShadow: `0 0 8px ${theme.accent}60`,
                           }}
                         />
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[8px] text-dim uppercase tracking-wider">
+                      <div className="mt-2 flex items-center justify-between text-[8px] text-dim uppercase tracking-wider font-bold">
                         <span>
                           {current.toLocaleString()} / {target.toLocaleString()}
                         </span>
@@ -270,7 +267,7 @@ export default function CityHUD() {
                           rel="noopener noreferrer"
                           className="text-[#ffa116] hover:underline"
                         >
-                          Source code
+                          Source code &rarr;
                         </a>
                       </div>
                     </div>
@@ -286,31 +283,35 @@ export default function CityHUD() {
                   const remaining = target - count;
                   const label = target >= 1000 ? `${target / 1000}K` : target.toLocaleString();
                   return (
-                    <div className="w-full max-w-sm">
-                      <div className="border-[2px] border-border bg-bg/80 px-4 py-3 backdrop-blur-sm">
-                        <div className="mb-2 flex items-baseline justify-between">
-                          <span className="text-[9px] tracking-wider" style={{ color: theme.accent }}>
-                            ROAD TO {label}
-                          </span>
-                          <span className="text-[9px] text-cream/60">
-                            {remaining.toLocaleString()} to go
-                          </span>
-                        </div>
-                        <div className="relative h-2.5 w-full overflow-hidden border-[2px] border-border bg-bg">
-                          <div
-                            className="absolute inset-y-0 left-0 transition-all duration-1000"
-                            style={{
-                              width: `${progress}%`,
-                              backgroundColor: theme.accent,
-                              boxShadow: `0 0 8px ${theme.accent}60`,
-                            }}
-                          />
-                        </div>
+                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
+                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
+                        <span>
+                          ROAD TO {label} DEVELOPERS
+                        </span>
+                        <span style={{ color: theme.accent }}>
+                          {remaining.toLocaleString()} TO GO
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
+                        <div
+                          className="h-full transition-all duration-1000 ease-out"
+                          style={{
+                            width: `${progress}%`,
+                            backgroundColor: theme.accent,
+                            boxShadow: `0 0 8px ${theme.accent}60`,
+                          }}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[8px] text-dim uppercase tracking-wider font-bold">
+                        <span>
+                          {count.toLocaleString()} / {target.toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   );
                 }
               })()}
+            </div>
 
               {/* Search Input Form */}
               <form
@@ -433,42 +434,46 @@ export default function CityHUD() {
                     <span className="block text-[8px] opacity-60 normal-case">Collect PX</span>
                   </button>
                 </div>
-            </div>
+              </div>
+
+              {/* Secondary actions (styled as retro buttons) */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-1 sm:mt-2">
+                <Link
+                  href="/leaderboard"
+                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
+                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                >
+                  🏆 LEADERBOARD
+                </Link>
+                <Link
+                  href="/arena"
+                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
+                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                >
+                  ⚔️ ARENA
+                </Link>
+                <Link
+                  href={shopHref}
+                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
+                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                >
+                  🛍️ SHOP
+                </Link>
+                <Link
+                  href="/roadmap"
+                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
+                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                >
+                  🗺️ ROADMAP
+                </Link>
+              </div>
             </div>
           )}
 
           {/* Secondary links & keyboard hints */}
-          <div className="pointer-events-auto flex flex-col items-center gap-3">
-            {/* Quick links row */}
-            <div className="hidden sm:flex items-center gap-4 text-[9px] tracking-wider">
-              <Link href="/leaderboard" className="transition-colors hover:text-cream" style={{ color: theme.accent }}>
-                LEADERBOARD
-              </Link>
-              <span className="text-border">│</span>
-              <Link href="/arena" className="transition-colors hover:text-cream" style={{ color: theme.accent }}>
-                ARENA
-              </Link>
-              <span className="text-border">│</span>
-              <Link href={shopHref} className="transition-colors hover:text-cream" style={{ color: theme.accent }}>
-                SHOP
-              </Link>
-              <span className="text-border">│</span>
-              <Link href="/roadmap" className="transition-colors hover:text-cream" style={{ color: theme.accent }}>
-                ROADMAP
-              </Link>
-            </div>
-
+          <div className="pointer-events-auto flex flex-col items-center gap-2">
             {/* Live stats footer */}
             <div className="flex items-center gap-4 text-[8px] text-cream/40 tracking-wider">
-              {buildings.length > 0 && (
-                <span>{buildings.length.toLocaleString()} buildings</span>
-              )}
-              {effectiveLiveCount > 0 && (
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#34d399' }} />
-                  {effectiveLiveCount} live
-                </span>
-              )}
               {(discordMembers ?? 0) > 0 && (
                 <span>{discordMembers} on Discord</span>
               )}
