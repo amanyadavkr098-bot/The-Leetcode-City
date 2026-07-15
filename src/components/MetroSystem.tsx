@@ -168,20 +168,20 @@ export default function MetroSystem() {
   const trackSegments = useMemo<TrackSegment[]>(() => {
     const list: TrackSegment[] = [];
 
-    // Track 1: Downtown (Bengaluru) [0, 40, 0] to Delhi (fullstack) [0, 40, -4000]
+    // Track 1: Downtown (Bengaluru) to Delhi (fullstack) - Offset outside city perimeters by [+450, 0, +450]
     if (o.downtown && o.fullstack) {
       list.push({
-        start: new THREE.Vector3(o.downtown[0], 40, o.downtown[2]),
-        end: new THREE.Vector3(o.fullstack[0], 40, o.fullstack[2]),
+        start: new THREE.Vector3(o.downtown[0] + 450, 40, o.downtown[2] + 450),
+        end: new THREE.Vector3(o.fullstack[0] + 450, 40, o.fullstack[2] + 450),
         name: "bengaluru-delhi"
       });
     }
 
-    // Track 2: Delhi (fullstack) [0, 40, -4000] to Kolkata (devops) [-3500, 40, -4000]
+    // Track 2: Delhi (fullstack) to Kolkata (devops) - Offset outside city perimeters by [+450, 0, +450]
     if (o.fullstack && o.devops) {
       list.push({
-        start: new THREE.Vector3(o.fullstack[0], 40, o.fullstack[2]),
-        end: new THREE.Vector3(o.devops[0], 40, o.devops[2]),
+        start: new THREE.Vector3(o.fullstack[0] + 450, 40, o.fullstack[2] + 450),
+        end: new THREE.Vector3(o.devops[0] + 450, 40, o.devops[2] + 450),
         name: "delhi-kolkata"
       });
     }
@@ -252,9 +252,9 @@ export default function MetroSystem() {
       {railsAndPillars.pillars}
 
       {/* Stations */}
-      {o.downtown && <MetroStation position={[o.downtown[0], 0, o.downtown[2]]} name="BENGALURU CENTRAL" />}
-      {o.fullstack && <MetroStation position={[o.fullstack[0], 0, o.fullstack[2]]} name="DELHI JUNCTION" />}
-      {o.devops && <MetroStation position={[o.devops[0], 0, o.devops[2]]} name="KOLKATA TERMINUS" />}
+      {o.downtown && <MetroStation position={[o.downtown[0] + 450, 0, o.downtown[2] + 450]} name="BENGALURU CENTRAL" />}
+      {o.fullstack && <MetroStation position={[o.fullstack[0] + 450, 0, o.fullstack[2] + 450]} name="DELHI JUNCTION" />}
+      {o.devops && <MetroStation position={[o.devops[0] + 450, 0, o.devops[2] + 450]} name="KOLKATA TERMINUS" />}
 
       {/* Animated Metro Trains running on the track segments */}
       {trackSegments.map((seg, idx) => (

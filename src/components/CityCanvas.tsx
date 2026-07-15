@@ -206,31 +206,30 @@ useGLTF.preload("/models/paper-plane.glb");
 
 const INTRO_DURATION = 14; // seconds
 
-// Founder building sits at roughly (146, h, -66) in the first block.
-// Camera target: founder building top.
-const FOUNDER_X = 146;
-const FOUNDER_Z = -66;
+// Camera target: downtown city center.
+const FOUNDER_X = 500;
+const FOUNDER_Z = 650;
 const TARGET_X = FOUNDER_X;
 const TARGET_Z = FOUNDER_Z;
-const TARGET_Y = 450;
+const TARGET_Y = 150;
 
-// Arc sweep: camera arcs ~180° around the city
-// Far left in fog -> descends through buildings -> rises to wide panorama centered on founder
+// Arc sweep: camera arcs ~180° around the downtown city
+// Far left in fog -> descends through buildings -> rises to wide panorama centered on downtown
 const INTRO_WAYPOINTS: [number, number, number][] = [
-  [-1600, 800, 1800],   // WP0: Far, high, left - city hidden in fog
-  [-1000, 700, 1300],   // WP1: Descending, silhouette appears
-  [-600, 600, 900],    // WP2: Ad plane level, buildings becoming clear
-  [-200, 550, 650],    // WP3: Skirting the city edge
-  [200, 600, 600],    // WP4: Crossing over
-  [500, 700, 700],    // WP5: Rising, pulling back
-  [700, 800, 900],    // WP6: Dramatic pullback
-  [800, 850, 1000],   // WP7: Final orbit position (wide panorama)
+  [-1250, 800, 2500],   // WP0: Far, high, left - city hidden in fog
+  [-650, 700, 2000],    // WP1: Descending, silhouette appears
+  [-250, 600, 1600],    // WP2: Ad plane level, buildings becoming clear
+  [150, 550, 1350],     // WP3: Skirting the city edge
+  [550, 600, 1300],     // WP4: Crossing over
+  [850, 700, 1400],     // WP5: Rising, pulling back
+  [1050, 800, 1600],    // WP6: Dramatic pullback
+  [1300, 700, 1500],    // WP7: Final orbit position (wide panorama)
 ];
 
-// Look targets smoothly converge toward the founder building top
+// Look targets smoothly converge toward the downtown city center
 const INTRO_LOOK_TARGETS: [number, number, number][] = [
-  [100, 300, -200],      // WP0: Toward distant city, already high
-  [TARGET_X, 380, TARGET_Z],  // WP1: Rising toward founder top
+  [300, 150, 150],      // WP0: Toward distant city, already high
+  [TARGET_X, 100, TARGET_Z],  // WP1: Rising toward city center
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP2: Locking on
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP3: Holding
   [TARGET_X, TARGET_Y, TARGET_Z],  // WP4: Holding
@@ -2219,7 +2218,7 @@ function OrbitScene({
 
   // Reset camera on mount — wide panorama centered on founder area
   useEffect(() => {
-    camera.position.set(800, 700, 1000);
+    camera.position.set(1300, 700, 1500);
     camera.lookAt(TARGET_X, TARGET_Y, TARGET_Z);
   }, [camera]);
 
@@ -2534,7 +2533,7 @@ export default function CityCanvas({
       aria-label="3D LeetCode City — use arrow keys to move between buildings, Enter to open a profile, Escape to close. Press Tab to leave the city."
       tabIndex={0}
       onKeyDown={handleCanvasKeyDown}
-      camera={{ position: [400, 450, 600], fov: 55, near: 1.0, far: 6100 }}
+      camera={{ position: [1300, 700, 1500], fov: 55, near: 1.0, far: 6100 }}
       dpr={[1, 1.5]}
       onCreated={({ gl, scene }) => {
         try {
