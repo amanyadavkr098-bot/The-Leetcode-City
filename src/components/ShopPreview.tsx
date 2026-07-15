@@ -506,6 +506,3 @@ export default function ShopPreview({
     </div>
   );
 }
-
-
-
