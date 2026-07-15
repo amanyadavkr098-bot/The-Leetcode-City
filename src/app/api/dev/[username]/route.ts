@@ -4,6 +4,63 @@ import { createServerSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
+interface LeetCodeProfile {
+  realName?: string;
+  userAvatar?: string;
+  reputation?: number;
+  ranking?: number;
+  aboutMe?: string;
+  countryName?: string;
+  school?: string;
+  company?: string;
+  websites?: string[];
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+}
+
+interface LeetCodeYearCalendar {
+  streak?: number;
+  totalActiveDays?: number;
+}
+
+interface LeetCodeContestRanking {
+  rating?: number;
+  globalRanking?: number;
+  attendedContestsCount?: number;
+  topPercentage?: number;
+  badge?: { name?: string };
+}
+
+interface LeetCodeMatchedUser {
+  username?: string;
+  profile?: LeetCodeProfile;
+  submitStats?: {
+    acSubmissionNum?: { difficulty: string; count: number }[];
+    totalSubmissionNum?: { difficulty: string; count: number }[];
+  };
+  userCalendar?: LeetCodeYearCalendar;
+  maxStreak?: number;
+  languageProblemCount?: { languageName: string; problemsSolved: number }[];
+  badges?: { name: string; icon: string; displayName: string }[];
+  tagProblemCounts?: {
+    advanced?: { tagName: string; problemsSolved: number }[];
+    intermediate?: { tagName: string; problemsSolved: number }[];
+    fundamental?: { tagName: string; problemsSolved: number }[];
+  };
+  yearCurrent?: LeetCodeYearCalendar;
+  yearPrev?: LeetCodeYearCalendar;
+  [key: string]: unknown;
+}
+
+interface LeetCodeApiResponse {
+  data?: {
+    matchedUser?: LeetCodeMatchedUser;
+    userContestRanking?: LeetCodeContestRanking;
+  };
+  errors?: { message?: string }[];
+}
+
 async function hashKey(key: string): Promise<string> {
   const data = new TextEncoder().encode(key + (process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""));
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -25,7 +82,7 @@ async function isRateLimited(key: string): Promise<boolean> {
     .eq("ip_hash", ipHash)
     .gte("created_at", oneHourAgo);
 
-  return (count ?? 0) >= RATE_LIMIT; // increased limit
+  return (count ?? 0) >= RATE_LIMIT;
 }
 
 async function recordRateLimitRequest(key: string): Promise<void> {
@@ -48,8 +105,6 @@ import { calculateLeetcodeXp, mergeBaseXp } from "@/lib/xp";
 
 async function fetchLeetCodeUser(username: string) {
   const currentYear = new Date().getFullYear();
-  // Only fetch current + previous year calendars to keep query size small
-  // (fetching all years back to 2015 makes the query too large and LeetCode rejects it)
   const prevYear = currentYear - 1;
 
   const query = `
@@ -92,8 +147,7 @@ async function fetchLeetCodeUser(username: string) {
       return null;
     }
     const rawText = await res.text();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let json: any;
+    let json: LeetCodeApiResponse;
     try { json = JSON.parse(rawText); } catch (err) { 
       console.error(`[/api/dev] LeetCode non-JSON response for "${username}": ${rawText.substring(0, 200)}`, err);
       return null;
@@ -101,18 +155,19 @@ async function fetchLeetCodeUser(username: string) {
     if (!json?.data?.matchedUser) {
       console.error(`[/api/dev] LeetCode returned no matchedUser for "${username}". Status: ${res.status}. firstErr:`, json?.errors?.[0]?.message);
     }
-    if (json?.data?.matchedUser) {
-      // Map calendar data into the structure parseMaxStreak expects (y<year> keys)
-      const mu = json.data.matchedUser;
-      // Both are aliased: yearCurrent = this year, yearPrev = last year
+    const apiData = json.data;
+    if (apiData?.matchedUser) {
+      const mu = apiData.matchedUser;
       if (mu.yearCurrent) {
-        (mu as Record<string, unknown>)[`y${currentYear}`] = mu.yearCurrent;
-        // Populate streak/totalActiveDays from the aliased calendar
+        mu[`y${currentYear}`] = mu.yearCurrent;
         if (!mu.userCalendar) {
-          mu.userCalendar = { streak: mu.yearCurrent.streak ?? 0, totalActiveDays: mu.yearCurrent.totalActiveDays ?? 0 };
+          mu.userCalendar = {
+            streak: mu.yearCurrent.streak ?? 0,
+            totalActiveDays: mu.yearCurrent.totalActiveDays ?? 0,
+          };
         }
       }
-      if (mu.yearPrev) (mu as Record<string, unknown>)[`y${prevYear}`] = mu.yearPrev;
+      if (mu.yearPrev) mu[`y${prevYear}`] = mu.yearPrev;
       mu.maxStreak = parseMaxStreak(mu, currentYear);
     }
     return json?.data ?? null;
@@ -144,7 +199,7 @@ export async function GET(
     const cacheTtlHours = process.env.CACHE_TTL_HOURS ?? "12";
     const CACHE_TTL_MS = parseInt(cacheTtlHours) * 3600000;
     const age = Date.now() - new Date(cached.fetched_at).getTime();
-    if (!forceRefresh && age < CACHE_TTL_MS) {  // 12h cache
+    if (!forceRefresh && age < CACHE_TTL_MS) {
       cachedRecord = cached;
     }
   }
@@ -169,8 +224,13 @@ export async function GET(
     rateLimitKey = key;
     // Skip rate limiting if this is a force-refresh from a logged-in user
     const skipRateLimit = forceRefresh && isAuthenticatedUser;
-    if (!skipRateLimit && await isRateLimited(key)) {
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    if (!skipRateLimit) {
+      if (await isRateLimited(key)) {
+        return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      }
+      // Record immediately, before the LeetCode API call, to prevent race condition
+      await recordRateLimitRequest(key);
+      rateLimitKey = null;
     }
   }
 
@@ -179,14 +239,12 @@ export async function GET(
   if (!cachedRecord) {
     const data = await fetchLeetCodeUser(username);
     if (!data) {
-      // Network/parsing error — return stale cached if available
       if (cached) {
         upserted = cached;
       } else {
         return NextResponse.json({ error: "Failed to fetch LeetCode data" }, { status: 502 });
       }
     } else if (!data.matchedUser) {
-      // LeetCode explicitly says user doesn't exist — return 404 regardless of cache
       return NextResponse.json({ error: "User not found on LeetCode" }, { status: 404 });
     } else {
       interface SubmissionNum {
@@ -223,8 +281,8 @@ export async function GET(
         b.problemsSolved - a.problemsSolved)[0].languageName
         : null;
       const litPercentage = Math.min(0.92, Math.max(0.15, activeDays / 365));
+      const badges = user.badges ?? [];
 
-      // Stable ID from username
       let hash = 0;
       for (const ch of username) hash = (Math.imul(31, hash) + ch.charCodeAt(0)) | 0;
 
@@ -238,9 +296,8 @@ export async function GET(
         total_stars: user.profile?.reputation || 0,
         public_repos: Math.max(0, 500000 - lcRank),
         rank: lcRank,
-        lc_global_rank: lcRank, // Populate official rank
+        lc_global_rank: lcRank,
         fetched_at: new Date().toISOString(),
-        // LC-specific
         easy_solved: getAC("Easy"),
         medium_solved: getAC("Medium"),
         hard_solved: getAC("Hard"),
@@ -252,14 +309,11 @@ export async function GET(
         active_days_last_year: activeDays,
         total_active_days: activeDays,
         total_submitted: totalSub,
-        // Contest extended
         contests_attended: data.userContestRanking?.attendedContestsCount ?? 0,
         contest_top_percentage: data.userContestRanking?.topPercentage ?? null,
         contest_badge_name: data.userContestRanking?.badge?.name ?? null,
-        // Badges
-        lc_badge: (user.badges?.length ?? 0) > 0 ? user.badges[user.badges.length - 1].name : null,
-        lc_badges_all: (user.badges ?? []).map((b: Badge) => ({ name: b.name, icon: b.icon, displayName: b.displayName })),
-        // Profile metadata
+        lc_badge: badges.length > 0 ? badges[badges.length - 1].name : null,
+        lc_badges_all: badges.map((b: Badge) => ({ name: b.name, icon: b.icon, displayName: b.displayName })),
         lc_bio: user.profile?.aboutMe ?? null,
         lc_country_code: user.profile?.countryName ?? null,
         lc_school: user.profile?.school ?? null,
@@ -269,7 +323,6 @@ export async function GET(
         lc_linkedin: user.profile?.linkedinUrl ?? null,
         lc_github: user.profile?.githubUrl ?? null,
         primary_language:dominantLanguage,
-        // Tag stats
         lc_tag_stats: [
           ...((user.tagProblemCounts?.advanced ?? []) as TagCount[]),
           ...((user.tagProblemCounts?.intermediate ?? []) as TagCount[]),
@@ -288,10 +341,6 @@ export async function GET(
         lc_streak: record.lc_streak
       });
 
-      // We must merge new Base XP with existing Base XP safely.
-      // Wait to upsert until we check if the user exists so we know what to append.
-      // mergeBaseXp preserves earned (non-base) XP and never goes negative; for a
-      // brand-new record (no cache) prev values are 0, so it returns newBaseXp.
       const mergeRecord = {
         ...record,
         xp_github: newBaseXp,
@@ -370,8 +419,6 @@ export async function GET(
     building_style: buildingStyle,
     active_raid_tag: raidTagsResult.data?.[0] ?? null,
   };
-
-  if (rateLimitKey) await recordRateLimitRequest(rateLimitKey);
 
   return NextResponse.json(result);
 }

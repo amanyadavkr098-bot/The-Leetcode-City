@@ -21,6 +21,9 @@ import {
   type CityPlaza,
   type CityDecoration,
   type DistrictZone,
+  type CityRiver,
+  type CityBridge,
+  type CityCanal,
 } from "@/lib/github";
 import { STATIC_RELICS, type Relic } from "@/lib/relics";
 import { useStreakCheckin } from "@/lib/useStreakCheckin";
@@ -91,6 +94,12 @@ interface CityContextProps {
   setDecorations: React.Dispatch<React.SetStateAction<CityDecoration[]>>;
   districtZones: DistrictZone[];
   setDistrictZones: React.Dispatch<React.SetStateAction<DistrictZone[]>>;
+  river: CityRiver | null;
+  setRiver: React.Dispatch<React.SetStateAction<CityRiver | null>>;
+  bridges: CityBridge[];
+  setBridges: React.Dispatch<React.SetStateAction<CityBridge[]>>;
+  canals: CityCanal[];
+  setCanals: React.Dispatch<React.SetStateAction<CityCanal[]>>;
   loading: boolean;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   loadStage: LoadingStage;
@@ -379,6 +388,9 @@ export function CityProvider({ children }: { children: ReactNode }) {
   const [plazas, setPlazas] = useState<CityPlaza[]>([]);
   const [decorations, setDecorations] = useState<CityDecoration[]>([]);
   const [districtZones, setDistrictZones] = useState<DistrictZone[]>([]);
+  const [river, setRiver] = useState<CityRiver | null>(null);
+  const [bridges, setBridges] = useState<CityBridge[]>([]);
+  const [canals, setCanals] = useState<CityCanal[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadStage, setLoadStage] = useState<LoadingStage>("init");
   const [loadProgress, setLoadProgress] = useState(0);
@@ -744,6 +756,9 @@ export function CityProvider({ children }: { children: ReactNode }) {
     setPlazas(layout.plazas);
     setDecorations(layout.decorations);
     setDistrictZones(layout.districtZones);
+    setRiver(layout.river);
+    setBridges(layout.bridges);
+    setCanals(layout.canals);
     setCityCache({ ...layout, stats: cityStats });
     return layout.buildings;
   }, []);
@@ -1102,6 +1117,12 @@ export function CityProvider({ children }: { children: ReactNode }) {
         rawDevsRef.current[foundIdx] = { ...rawDevsRef.current[foundIdx], ...devData };
         const layout = generateCityLayout(rawDevsRef.current);
         setBuildings(layout.buildings);
+        setPlazas(layout.plazas);
+        setDecorations(layout.decorations);
+        setDistrictZones(layout.districtZones);
+        setRiver(layout.river);
+        setBridges(layout.bridges);
+        setCanals(layout.canals);
         const updated = layout.buildings.find((b) => b.login.toLowerCase() === selectedBuilding.login.toLowerCase());
         if (updated) setSelectedBuilding(updated);
       }
@@ -1309,6 +1330,12 @@ export function CityProvider({ children }: { children: ReactNode }) {
           };
           const layout = generateCityLayout(rawDevsRef.current);
           setBuildings(layout.buildings);
+          setPlazas(layout.plazas);
+          setDecorations(layout.decorations);
+          setDistrictZones(layout.districtZones);
+          setRiver(layout.river);
+          setBridges(layout.bridges);
+          setCanals(layout.canals);
           setSelectedBuilding((prev) => {
             if (!prev || prev.login.toLowerCase() !== devData.github_login?.toLowerCase()) return prev;
             return layout.buildings.find((b) => b.login.toLowerCase() === devData.github_login?.toLowerCase()) ?? prev;
@@ -1669,6 +1696,9 @@ export function CityProvider({ children }: { children: ReactNode }) {
           setPlazas(cached.plazas);
           setDecorations(cached.decorations);
           setDistrictZones(cached.districtZones);
+          setRiver(cached.river ?? null);
+          setBridges(cached.bridges ?? []);
+          setCanals(cached.canals ?? []);
           setStats(cached.stats);
 
           setLoadStage("rendering");
@@ -1775,6 +1805,9 @@ export function CityProvider({ children }: { children: ReactNode }) {
         setPlazas(finalLayout.plazas);
         setDecorations(finalLayout.decorations);
         setDistrictZones(finalLayout.districtZones);
+        setRiver(finalLayout.river);
+        setBridges(finalLayout.bridges);
+        setCanals(finalLayout.canals);
 
         setLoadProgress(55);
 
@@ -1891,6 +1924,12 @@ export function CityProvider({ children }: { children: ReactNode }) {
         setDecorations,
         districtZones,
         setDistrictZones,
+        river,
+        setRiver,
+        bridges,
+        setBridges,
+        canals,
+        setCanals,
         loading,
         setLoading,
         loadStage,

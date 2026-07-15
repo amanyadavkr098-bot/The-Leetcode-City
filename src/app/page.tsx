@@ -56,6 +56,9 @@ function HomeContent() {
     buildings,
     plazas,
     decorations,
+    river,
+    bridges,
+    canals,
     flyMode,
     relicFocus,
     flyVehicle,
@@ -159,6 +162,9 @@ function HomeContent() {
         buildings={buildings}
         plazas={plazas}
         decorations={decorations}
+        river={river}
+        bridges={bridges}
+        canals={canals}
         flyMode={flyMode}
         relicFocus={relicFocus}
         flyVehicle={flyVehicle}
