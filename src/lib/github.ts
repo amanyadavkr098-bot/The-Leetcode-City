@@ -1183,15 +1183,16 @@ export function calcBuildingDims(
   }
 
   // V2 path when expanded data is available
-  if (v2Data && (v2Data.contributions_total ?? 0) > 0) {
-    const dev: DeveloperRecord = {
-      id: 0, github_login: githubLogin, github_id: null, name: null,
-      avatar_url: null, bio: null, contributions, public_repos: publicRepos,
-      total_stars: totalStars, primary_language: null, top_repos: [],
-      rank: null, fetched_at: '', created_at: '', claimed: false,
-      fetch_priority: 0, claimed_at: null,
-      ...v2Data,
-    };
+  const dev: DeveloperRecord = {
+    id: 0, github_login: githubLogin, github_id: null, name: null,
+    avatar_url: null, bio: null, contributions, public_repos: publicRepos,
+    total_stars: totalStars, primary_language: null, top_repos: [],
+    rank: null, fetched_at: '', created_at: '', claimed: false,
+    fetch_priority: 0, claimed_at: null,
+    ...v2Data,
+  };
+
+  if (isV2Dev(dev)) {
     const { height } = calcHeightV2(dev, maxContrib, maxStars);
     return { width: calcWidthV2(dev), height, depth: calcDepthV2(dev) };
   }
