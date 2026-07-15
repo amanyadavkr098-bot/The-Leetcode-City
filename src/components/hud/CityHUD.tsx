@@ -354,123 +354,117 @@ export default function CityHUD() {
                   }}
                 />
               </div>
+
+              {/* Primary & Secondary actions grouped together just below search feedback */}
+              {buildings.length > 0 && (
+                <div className="pointer-events-auto flex flex-col items-center gap-2 mt-3 w-full max-w-md">
+                  {/* Free Gift CTA */}
+                  {hasFreeGift && (
+                    <button
+                      onClick={handleClaimFreeGift}
+                      disabled={claimingGift}
+                      className="gift-cta btn-press w-full py-2.5 text-xs text-bg disabled:opacity-60"
+                      style={{
+                        backgroundColor: theme.accent,
+                        boxShadow: `2px 2px 0 0 ${theme.shadow}`,
+                      }}
+                    >
+                      {claimingGift ? "Opening..." : "🎁 Open Free Gift!"}
+                    </button>
+                  )}
+
+                  {/* Row 1: Explore City and Fly (Big buttons, side-by-side) */}
+                  <div className="flex w-full items-center gap-3 sm:gap-4">
+                    <button
+                      onClick={() => setExploreMode(true)}
+                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold"
+                      style={{
+                        backgroundColor: theme.accent,
+                        boxShadow: `4px 4px 0 0 ${theme.shadow}`,
+                      }}
+                    >
+                      Explore City
+                      <span className="block text-[8px] opacity-60 normal-case font-normal">Browse Buildings</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFocusedBuilding(null);
+                        setFlyMode(true);
+                        setFlyScore({ score: 0, earned: 0, combo: 0, collected: 0, maxCombo: 1 });
+                        flyStartTime.current = Date.now();
+                        flyPausedAt.current = 0;
+                        flyTotalPauseMs.current = 0;
+                        setFlyElapsedSec(0);
+                        try {
+                          setFlyPersonalBest(
+                            parseInt(localStorage.getItem("leetcodecity_fly_pb") || "0", 10) || 0
+                          );
+                        } catch {
+                          setFlyPersonalBest(0);
+                        }
+                        if (!localStorage.getItem("leetcodecity_fly_controls_seen")) {
+                          setShowFlyControls(true);
+                        }
+                      }}
+                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold"
+                      style={{
+                        backgroundColor: theme.accent,
+                        boxShadow: `4px 4px 0 0 ${theme.shadow}`,
+                      }}
+                    >
+                      ✈ Fly
+                      <span className="block text-[8px] opacity-60 normal-case font-normal">Collect PX</span>
+                    </button>
+                  </div>
+
+                  {/* Row 2: Arcade, Leaderboard, Roadmap (Smaller buttons, side-by-side) */}
+                  <div className="flex w-full items-center justify-center gap-2 mt-1">
+                    <button
+                      onClick={() => setEArcadeOpen(true)}
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                    >
+                      🕹️ ARCADE
+                    </button>
+                    <Link
+                      href="/leaderboard"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                    >
+                      🏆 LEADERBOARD
+                    </Link>
+                    <Link
+                      href="/roadmap"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                    >
+                      🗺️ ROADMAP
+                    </Link>
+                  </div>
+
+                  {/* Row 3: Shop and Arena (Smaller buttons, side-by-side) */}
+                  <div className="flex w-full items-center justify-center gap-2 mt-1">
+                    <Link
+                      href={shopHref}
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                    >
+                      🛍️ SHOP
+                    </Link>
+                    <Link
+                      href="/arena"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
+                    >
+                      ⚔️ ARENA
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Center - Explore buttons + Shop + Auth */}
-          {buildings.length > 0 && (
-            <div className="pointer-events-auto flex flex-col items-center gap-2 sm:gap-3">
-              {/* Free Gift CTA — above primary actions */}
-              {hasFreeGift && (
-                <button
-                  onClick={handleClaimFreeGift}
-                  disabled={claimingGift}
-                  className="gift-cta btn-press px-7 py-3 text-xs sm:py-3.5 sm:text-sm text-bg disabled:opacity-60"
-                  style={{
-                    backgroundColor: theme.accent,
-                    boxShadow: `2px 2px 0 0 ${theme.shadow}`,
-                  }}
-                >
-                  {claimingGift ? "Opening..." : "🎁 Open Free Gift!"}
-                </button>
-              )}
-
-              {/* Primary actions */}
-              <div className="flex items-center gap-3 sm:gap-4">
-                <button
-                  onClick={() => setExploreMode(true)}
-                  className="btn-press px-7 py-3 text-xs sm:py-3.5 sm:text-sm text-bg"
-                  style={{
-                    backgroundColor: theme.accent,
-                    boxShadow: `4px 4px 0 0 ${theme.shadow}`,
-                  }}
-                >
-                  Explore City
-                  <span className="block text-[8px] opacity-60 normal-case">Browse Buildings</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setEArcadeOpen(true);
-                  }}
-                  className="btn-press px-7 py-3 text-xs sm:py-3.5 sm:text-sm text-bg"
-                  style={{
-                    backgroundColor: theme.accent,
-                    boxShadow: `4px 4px 0 0 ${theme.shadow}`,
-                  }}
-                >
-                  Arcade
-                  <span className="block text-[8px] opacity-60 normal-case">
-                    {arcadeOnline > 0 ? `${arcadeOnline} online` : "Play mini-games"}
-                  </span>
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setFocusedBuilding(null);
-                      setFlyMode(true);
-                      setFlyScore({ score: 0, earned: 0, combo: 0, collected: 0, maxCombo: 1 });
-                      flyStartTime.current = Date.now();
-                      flyPausedAt.current = 0;
-                      flyTotalPauseMs.current = 0;
-                      setFlyElapsedSec(0);
-                      try {
-                        setFlyPersonalBest(
-                          parseInt(localStorage.getItem("leetcodecity_fly_pb") || "0", 10) || 0
-                        );
-                      } catch {
-                        setFlyPersonalBest(0);
-                      }
-                      if (!localStorage.getItem("leetcodecity_fly_controls_seen")) {
-                        setShowFlyControls(true);
-                      }
-                    }}
-                    className="btn-press px-7 py-3 text-xs sm:py-3.5 sm:text-sm text-bg"
-                    style={{
-                      backgroundColor: theme.accent,
-                      boxShadow: `4px 4px 0 0 ${theme.shadow}`,
-                    }}
-                  >
-                    ✈ Fly
-                    <span className="block text-[8px] opacity-60 normal-case">Collect PX</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Secondary actions (styled as retro buttons) */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-1 sm:mt-2">
-                <Link
-                  href="/leaderboard"
-                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
-                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
-                >
-                  🏆 LEADERBOARD
-                </Link>
-                <Link
-                  href="/arena"
-                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
-                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
-                >
-                  ⚔️ ARENA
-                </Link>
-                <Link
-                  href={shopHref}
-                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
-                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
-                >
-                  🛍️ SHOP
-                </Link>
-                <Link
-                  href="/roadmap"
-                  className="btn-press border-[2px] border-border bg-bg/85 px-4 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5"
-                  style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
-                >
-                  🗺️ ROADMAP
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* Secondary links & keyboard hints */}
+          {/* Secondary links & keyboard hints (Bottom aligned) */}
           <div className="pointer-events-auto flex flex-col items-center gap-2">
             {/* Live stats footer */}
             <div className="flex items-center gap-4 text-[8px] text-cream/40 tracking-wider">

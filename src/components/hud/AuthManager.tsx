@@ -78,6 +78,14 @@ export default function AuthManager() {
           <span className="text-muted">LIVE</span>
         </button>
 
+        <button
+          onClick={() => setAnalyticsOpen((v) => !v)}
+          className="hidden sm:flex items-center gap-1.5 border-[3px] border-border bg-bg/70 px-2.5 py-1 text-[10px] backdrop-blur-sm transition-colors hover:border-border-light"
+          style={{ color: analyticsOpen ? "#ffa116" : "#8c8c9c" }}
+        >
+          [ANALYTICS]
+        </button>
+
         {/* Coding Activity Dropdown */}
         {(() => {
           const energyLabel =
