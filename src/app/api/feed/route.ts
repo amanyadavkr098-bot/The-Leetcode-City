@@ -4,9 +4,6 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 const MIN_EVENTS = 8;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * @param {import('next/server').NextRequest} request
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const rawLimit = parseInt(searchParams.get("limit") ?? "20", 10);
@@ -19,7 +16,7 @@ export async function GET(request: Request) {
   }
 
   const limit = Math.min(50, Math.max(1, rawLimit));
-  const before = searchParams.get("before"); // UUID cursor
+  const before = searchParams.get("before");
 
   if (before && !UUID_RE.test(before)) {
     return NextResponse.json(
@@ -31,12 +28,6 @@ export async function GET(request: Request) {
   const todayOnly = searchParams.get("today") === "1";
 
   const sb = getSupabaseAdmin();
-
-  // Piggyback cleanup: delete events older than 30 days (~1% chance per request)
-  if (Math.random() < 0.01) {
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
-    sb.from("activity_feed").delete().lt("created_at", cutoff).then(() => {});
-  }
 
   let query = sb
     .from("activity_feed")
@@ -75,7 +66,6 @@ export async function GET(request: Request) {
 
   let events = (await query).data ?? [];
 
-  // If today-only returned too few, backfill with recent events (last 7 days)
   if (todayOnly && events.length < MIN_EVENTS && !before) {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const { data: recent } = await sb
@@ -90,7 +80,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // If still too few real events, generate synthetic events from developer data
   if (todayOnly && events.length < MIN_EVENTS && !before) {
     const synthetic = await generateSyntheticEvents(sb, MIN_EVENTS - events.length);
     events = [...events, ...synthetic];
@@ -103,7 +92,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // Collect all actor/target IDs to batch-fetch developer info
   const devIds = new Set<number>();
   for (const e of events) {
     if (e.actor_id) devIds.add(e.actor_id);
@@ -122,7 +110,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Enrich events
   const enriched = events.map((e) => ({
     ...e,
     actor: e.actor_id ? devMap[e.actor_id] ?? null : null,
@@ -142,10 +129,6 @@ export async function GET(request: Request) {
   );
 }
 
-// ─── Synthetic Events ────────────────────────────────────────
-// Generates feed items from existing developer data so the ticker
-// always has content even when no real actions happened today.
-
 async function generateSyntheticEvents(sb: ReturnType<typeof getSupabaseAdmin>, count: number) {
   const { data: devs } = await sb
     .from("developers")
@@ -164,13 +147,11 @@ async function generateSyntheticEvents(sb: ReturnType<typeof getSupabaseAdmin>, 
     created_at: string;
   }> = [];
 
-  // Shuffle devs for variety
   const shuffled = [...devs].sort(() => Math.random() - 0.5);
 
   for (const dev of shuffled) {
     if (events.length >= count) break;
 
-    // Pick a random synthetic event type for each dev
     const roll = Math.random();
 
     if (roll < 0.25 && dev.contributions > 0) {
@@ -194,7 +175,7 @@ async function generateSyntheticEvents(sb: ReturnType<typeof getSupabaseAdmin>, 
         target_id: null,
         metadata: {
           login: dev.github_login,
-          highlight: "reputation",   // renamed from "stars"
+          highlight: "reputation",
           value: dev.total_stars,
         },
         created_at: new Date().toISOString(),
@@ -220,7 +201,7 @@ async function generateSyntheticEvents(sb: ReturnType<typeof getSupabaseAdmin>, 
         target_id: null,
         metadata: {
           login: dev.github_login,
-          highlight: "lc_streak",    // renamed from "streak"
+          highlight: "lc_streak",
           value: dev.lc_streak,
         },
         created_at: new Date().toISOString(),
