@@ -199,34 +199,51 @@ export default function CityHUD() {
                   const target = stats?.renewal_target_inr ?? 2900;
                   const pct = Math.min(100, (current / target) * 100);
                   const isDone = current >= target;
- 
+
                   return (
-                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
-                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
-                        <span>
-                          {isDone ? "RENEWAL SECURED!" : "WEBSITE RENEWAL GOAL"}
-                        </span>
-                        <span style={{ color: theme.accent }}>
-                          {isDone ? "SECURED" : `${Math.round(pct)}% FUNDED`}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
-                        <div
-                          className="h-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: theme.accent,
-                            boxShadow: `0 0 8px ${theme.accent}60`,
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[8px] text-[#ffa116] uppercase tracking-wider font-bold">
-                        <span className="text-dim">
-                          ₹{current.toLocaleString()} / ₹{target.toLocaleString()}
-                        </span>
-                        <a href="/support" className="hover:underline text-right">
-                          SUPPORT THE SIGNAL &rarr;
-                        </a>
+                    <div className="pointer-events-auto mt-2 w-full max-w-lg border-[3px] border-border bg-bg-raised p-4 sm:p-5 relative overflow-hidden text-left font-pixel font-bold uppercase text-cream">
+                      {/* Grid background effect */}
+                      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,161,22,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,161,22,0.02)_1px,transparent_1px)] bg-[size:8px_8px] pointer-events-none" />
+
+                      <div className="relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                          <div>
+                            <p className="text-[9px] sm:text-[10px] tracking-wider" style={{ color: theme.accent }}>
+                              &gt; CAMPAIGN: WEBSITE RENEWAL
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-left sm:text-right font-pixel">
+                            <span className="text-xs text-cream font-bold">
+                              ₹{current.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] text-muted">
+                              {` / ₹${target.toLocaleString()} INR`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar Track */}
+                        <div className="mt-3.5 h-6 border-[2px] border-border bg-black/40 relative p-[2px] overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-600 to-amber-400 relative transition-all duration-1000 ease-out"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.15) 4px, rgba(0,0,0,0.15) 8px)",
+                            }}
+                          >
+                            <div className="absolute inset-y-0 right-0 w-2 bg-white/40 shadow-[0_0_8px_#ffa116]" />
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center font-pixel text-[9px] text-cream drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,0.8)] font-bold">
+                            {isDone ? "RENEWAL SECURED!" : `${Math.round(pct)}% FUNDED`}
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between text-[8px] sm:text-[9px] text-muted font-bold">
+                          <span>STATUS: {isDone ? "GOAL ACHIEVED!" : "ACTIVE — AWAITING POWER"}</span>
+                          <a href="/support" className="hover:underline text-right" style={{ color: theme.accent }}>
+                            SUPPORT THE SIGNAL &rarr;
+                          </a>
+                        </div>
                       </div>
                     </div>
                   );
@@ -236,39 +253,57 @@ export default function CityHUD() {
                   const target = MILESTONES.find((m) => current < m) || 10000;
                   const pct = Math.min(100, (current / target) * 100);
                   const isDone = current >= target;
- 
+
                   return (
-                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
-                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
-                        <span>
-                          {isDone ? "GOAL REACHED" : `ROAD TO ${target} STARS`}
-                        </span>
-                        <span style={{ color: theme.accent }}>
-                          {Math.max(0, target - current).toLocaleString()} TO GO
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
-                        <div
-                          className="h-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: theme.accent,
-                            boxShadow: `0 0 8px ${theme.accent}60`,
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[8px] text-dim uppercase tracking-wider font-bold">
-                        <span>
-                          {current.toLocaleString()} / {target.toLocaleString()}
-                        </span>
-                        <a
-                          href="https://github.com/Ixotic27/The-Leetcode-City"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#ffa116] hover:underline"
-                        >
-                          Source code &rarr;
-                        </a>
+                    <div className="pointer-events-auto mt-2 w-full max-w-lg border-[3px] border-border bg-bg-raised p-4 sm:p-5 relative overflow-hidden text-left font-pixel font-bold uppercase text-cream">
+                      {/* Grid background effect */}
+                      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,161,22,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,161,22,0.02)_1px,transparent_1px)] bg-[size:8px_8px] pointer-events-none" />
+
+                      <div className="relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                          <div>
+                            <p className="text-[9px] sm:text-[10px] tracking-wider" style={{ color: theme.accent }}>
+                              &gt; CAMPAIGN: STAR GAZER
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-left sm:text-right font-pixel">
+                            <span className="text-xs text-cream font-bold">
+                              {current.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] text-muted">
+                              {` / ${target.toLocaleString()} STARS`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar Track */}
+                        <div className="mt-3.5 h-6 border-[2px] border-border bg-black/40 relative p-[2px] overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-600 to-amber-400 relative transition-all duration-1000 ease-out"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.15) 4px, rgba(0,0,0,0.15) 8px)",
+                            }}
+                          >
+                            <div className="absolute inset-y-0 right-0 w-2 bg-white/40 shadow-[0_0_8px_#ffa116]" />
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center font-pixel text-[9px] text-cream drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,0.8)] font-bold">
+                            {isDone ? "GOAL REACHED!" : `${Math.round(pct)}% COMPLETED`}
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between text-[8px] sm:text-[9px] text-muted font-bold">
+                          <span>STATUS: {isDone ? "GOAL ACHIEVED!" : "ACTIVE — AWAITING POWER"}</span>
+                          <a
+                            href="https://github.com/Ixotic27/The-Leetcode-City"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline text-right"
+                            style={{ color: theme.accent }}
+                          >
+                            STAR THE REPO &rarr;
+                          </a>
+                        </div>
                       </div>
                     </div>
                   );
@@ -282,30 +317,50 @@ export default function CityHUD() {
                   const progress = ((count - prev) / (target - prev)) * 100;
                   const remaining = target - count;
                   const label = target >= 1000 ? `${target / 1000}K` : target.toLocaleString();
+                  const isDone = count >= target;
+
                   return (
-                    <div className="pointer-events-auto mt-2 w-full max-w-md border-[2px] border-border bg-bg/85 px-4 py-2.5 backdrop-blur-sm">
-                      <div className="mb-1.5 flex items-center justify-between text-[8px] uppercase tracking-widest text-cream font-bold">
-                        <span>
-                          ROAD TO {label} DEVELOPERS
-                        </span>
-                        <span style={{ color: theme.accent }}>
-                          {remaining.toLocaleString()} TO GO
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden border-[2px] border-border bg-bg">
-                        <div
-                          className="h-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: `${progress}%`,
-                            backgroundColor: theme.accent,
-                            boxShadow: `0 0 8px ${theme.accent}60`,
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[8px] text-dim uppercase tracking-wider font-bold">
-                        <span>
-                          {count.toLocaleString()} / {target.toLocaleString()}
-                        </span>
+                    <div className="pointer-events-auto mt-2 w-full max-w-lg border-[3px] border-border bg-bg-raised p-4 sm:p-5 relative overflow-hidden text-left font-pixel font-bold uppercase text-cream">
+                      {/* Grid background effect */}
+                      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,161,22,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,161,22,0.02)_1px,transparent_1px)] bg-[size:8px_8px] pointer-events-none" />
+
+                      <div className="relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                          <div>
+                            <p className="text-[9px] sm:text-[10px] tracking-wider" style={{ color: theme.accent }}>
+                              &gt; CAMPAIGN: CITY EXPANSION
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-left sm:text-right font-pixel">
+                            <span className="text-xs text-cream font-bold">
+                              {count.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] text-muted">
+                              {` / ${target.toLocaleString()} DEVS`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar Track */}
+                        <div className="mt-3.5 h-6 border-[2px] border-border bg-black/40 relative p-[2px] overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-600 to-amber-400 relative transition-all duration-1000 ease-out"
+                            style={{
+                              width: `${progress}%`,
+                              backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.15) 4px, rgba(0,0,0,0.15) 8px)",
+                            }}
+                          >
+                            <div className="absolute inset-y-0 right-0 w-2 bg-white/40 shadow-[0_0_8px_#ffa116]" />
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center font-pixel text-[9px] text-cream drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,0.8)] font-bold">
+                            {isDone ? "GOAL REACHED!" : `${Math.round(progress)}% COMPLETED`}
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between text-[8px] sm:text-[9px] text-muted font-bold">
+                          <span>STATUS: {isDone ? "GOAL ACHIEVED!" : "ACTIVE — AWAITING POPULATION"}</span>
+                          <span style={{ color: theme.accent }}>{remaining.toLocaleString()} TO GO</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -316,7 +371,7 @@ export default function CityHUD() {
               {/* Search Input Form */}
               <form
                 onSubmit={handleLandingSubmit}
-                className="flex w-full max-w-md items-center gap-2 mt-4"
+                className="flex w-full max-w-lg items-center gap-2 mt-4"
               >
                 <input
                   type="text"
@@ -344,7 +399,7 @@ export default function CityHUD() {
               </form>
 
               {/* Search Feedback */}
-              <div className="w-full max-w-md">
+              <div className="w-full max-w-lg">
                 <SearchFeedback
                   feedback={feedback}
                   accentColor={theme.accent}
@@ -357,7 +412,7 @@ export default function CityHUD() {
 
               {/* Primary & Secondary actions grouped together just below search feedback */}
               {buildings.length > 0 && (
-                <div className="pointer-events-auto flex flex-col items-center gap-2 mt-3 w-full max-w-md">
+                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-3 w-full max-w-lg">
                   {/* Free Gift CTA */}
                   {hasFreeGift && (
                     <button
@@ -377,7 +432,7 @@ export default function CityHUD() {
                   <div className="flex w-full items-center gap-3 sm:gap-4">
                     <button
                       onClick={() => setExploreMode(true)}
-                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold"
+                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold px-6"
                       style={{
                         backgroundColor: theme.accent,
                         boxShadow: `4px 4px 0 0 ${theme.shadow}`,
@@ -406,7 +461,7 @@ export default function CityHUD() {
                           setShowFlyControls(true);
                         }
                       }}
-                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold"
+                      className="btn-press flex-1 py-3 text-xs sm:py-3.5 sm:text-sm text-bg text-center font-bold px-6"
                       style={{
                         backgroundColor: theme.accent,
                         boxShadow: `4px 4px 0 0 ${theme.shadow}`,
@@ -418,24 +473,24 @@ export default function CityHUD() {
                   </div>
 
                   {/* Row 2: Arcade, Leaderboard, Roadmap (Smaller buttons, side-by-side) */}
-                  <div className="flex w-full items-center justify-center gap-2 mt-1">
+                  <div className="flex w-full items-center justify-center gap-3 mt-1.5">
                     <button
                       onClick={() => setEArcadeOpen(true)}
-                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2.5 sm:py-3 text-[9px] sm:text-[10px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
                       style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
                     >
                       🕹️ ARCADE
                     </button>
                     <Link
                       href="/leaderboard"
-                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2.5 sm:py-3 text-[9px] sm:text-[10px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
                       style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
                     >
                       🏆 LEADERBOARD
                     </Link>
                     <Link
                       href="/roadmap"
-                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2.5 sm:py-3 text-[9px] sm:text-[10px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
                       style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
                     >
                       🗺️ ROADMAP
@@ -443,17 +498,17 @@ export default function CityHUD() {
                   </div>
 
                   {/* Row 3: Shop and Arena (Smaller buttons, side-by-side) */}
-                  <div className="flex w-full items-center justify-center gap-2 mt-1">
+                  <div className="flex w-full items-center justify-center gap-3 mt-1.5">
                     <Link
                       href={shopHref}
-                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2.5 sm:py-3 text-[9px] sm:text-[10px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
                       style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
                     >
                       🛍️ SHOP
                     </Link>
                     <Link
                       href="/arena"
-                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2 text-[9px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
+                      className="btn-press flex-1 border-[2px] border-border bg-bg/85 py-2.5 sm:py-3 text-[9px] sm:text-[10px] tracking-wider text-cream font-bold transition-colors hover:bg-white/10 active:bg-white/5 text-center"
                       style={{ boxShadow: `3px 3px 0 0 ${theme.shadow}` }}
                     >
                       ⚔️ ARENA

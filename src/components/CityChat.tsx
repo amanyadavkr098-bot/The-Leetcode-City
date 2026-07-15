@@ -71,6 +71,36 @@ export default function CityChat({
     setLastSeenCount(messages.length);
   }
 
+  // Listen for 'T' key globally to open/toggle chat
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT" ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        setIsOpen((open) => {
+          if (!open) {
+            setTimeout(() => {
+              inputRef.current?.focus();
+            }, 50);
+          }
+          return !open;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current && isOpen) {
@@ -90,6 +120,9 @@ export default function CityChat({
       if (e.key === "Enter") {
         e.preventDefault();
         handleSend();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setIsOpen(false);
       }
       // Prevent the game from capturing chat keystrokes
       e.stopPropagation();
@@ -102,8 +135,13 @@ export default function CityChat({
     return (
       <button
         id="city-chat-toggle"
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-[160px] right-4 z-50 flex items-center justify-center gap-2.5 border-[3px] border-border bg-bg/80 px-5 py-2 text-[10px] backdrop-blur-md transition-all hover:border-border-light hover:bg-bg/90 min-w-[130px]"
+        onClick={() => {
+          setIsOpen(true);
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 50);
+        }}
+        className="fixed top-[90px] right-4 z-50 flex items-center justify-center gap-2.5 border-[3px] border-border bg-bg/80 px-5 py-2 text-[10px] backdrop-blur-md transition-all hover:border-border-light hover:bg-bg/90 min-w-[130px] shadow-lg"
         style={{
           fontFamily: "'Press Start 2P', 'Courier New', monospace",
         }}
@@ -137,7 +175,7 @@ export default function CityChat({
   return (
     <div
       id="city-chat-panel"
-      className="fixed bottom-[160px] right-4 z-50 flex flex-col border-[3px] border-border bg-bg/90 backdrop-blur-md"
+      className="fixed top-[90px] right-4 z-50 flex flex-col border-[3px] border-border bg-bg/90 backdrop-blur-md shadow-2xl"
       style={{
         width: "min(340px, calc(100vw - 32px))",
         height: "280px",
