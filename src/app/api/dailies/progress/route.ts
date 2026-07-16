@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
-import { getDailyMissions, getTodayStr, MISSIONS_BY_ID } from "@/lib/dailies";
+import { getTodayStr } from "@/lib/dailies";
+import { DailyMissionService, DailyMissionServiceError } from "@/services/dailyMissionService";
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -23,16 +24,13 @@ export async function POST(request: Request) {
   const { mission_id, points, mobile } = body as {
     mission_id: string;
     points?: number;
-    mobile?: boolean;   // ← read from body
+    mobile?: boolean;
   };
-  const isMobile = mobile === true;  // ← derive flag
+  const isMobile = mobile === true;
   const increment = typeof points === "number" && points > 0 ? points : 1;
 
-  if (!mission_id || !MISSIONS_BY_ID.has(mission_id)) {
-    return NextResponse.json({ error: "Invalid mission_id" }, { status: 400 });
-  }
-
   const admin = getSupabaseAdmin();
+  const service = new DailyMissionService(admin);
 
   const { data: dev } = await admin
     .from("developers")
@@ -44,25 +42,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Must claim building first" }, { status: 403 });
   }
 
-  const today = getTodayStr();
-  const missions = getDailyMissions(dev.id, today, isMobile);  // ← pass flag
-  const mission = missions.find((m) => m.id === mission_id);
-
-  if (!mission) {
-    return NextResponse.json({ error: "Mission not assigned today" }, { status: 400 });
-  }
-
-  const { data: result, error: rpcError } = await admin.rpc("record_mission_progress", {
-    p_developer_id: dev.id,
-    p_mission_id: mission_id,
-    p_threshold: mission.threshold,
-    p_increment: increment,
-  });
-
-  if (rpcError) {
-    console.error("[dailies] progress RPC error:", rpcError);
+  try {
+    const result = await service.updateProgress({
+      developerId: dev.id,
+      missionId: mission_id,
+      increment,
+      isMobile,
+      today: getTodayStr(),
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof DailyMissionServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json({ error: "Failed to update progress" }, { status: 500 });
   }
-
-  return NextResponse.json(result);
 }
