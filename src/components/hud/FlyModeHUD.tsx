@@ -38,6 +38,7 @@ export default function FlyModeHUD() {
     setFlyVehicle,
     endRabbitCinematic,
     districtAnnouncement,
+    activeFlyQuota,
   } = useCity();
 
   // ─── Case 1: Post-Flight Results Modal ───
@@ -276,7 +277,7 @@ export default function FlyModeHUD() {
               MISSION QUOTA MATCHED!
             </div>
             <div className="text-[10px] text-cream/80">
-              You&apos;ve reached 50 PX. Exit now to complete quest?
+              You&apos;ve reached {activeFlyQuota || 50} PX. Exit now to complete quest?
             </div>
             <div className="mt-2 flex gap-3">
               <button
