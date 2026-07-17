@@ -208,7 +208,7 @@ export function isWalkable(x: number, y: number): boolean {
 
 export function getSpawns(): Array<{ x: number; y: number }> {
   if (!currentMap) return [{ x: 12, y: 15 }];
-  return currentMap.objects
+  return (currentMap.objects ?? [])
     .filter((o) => o.type === "spawn")
     .map((o) => ({ x: o.x, y: o.y }));
 }
