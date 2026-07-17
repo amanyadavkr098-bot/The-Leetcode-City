@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs, react-hooks/immutability, @typescript-eslint/no-unused-vars */
-import { useRef, useEffect, useState, useMemo, lazy, Suspense } from "react";
+import { useRef, useEffect, useState, useMemo, useCallback, lazy, Suspense, memo } from "react";
+import type { MutableRefObject, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Stats } from "@react-three/drei";
@@ -2281,7 +2282,7 @@ function WallpaperOrbitScene({ speed }: { speed: number }) {
 
 // ─── Main Canvas ─────────────────────────────────────────────
 
-interface Props {
+export interface CityCanvasProps {
   onReady?: () => void;
   buildings: CityBuilding[];
   plazas: CityPlaza[];
@@ -2376,6 +2377,335 @@ function CityExposure({ cityEnergy }: { cityEnergy: number }) {
 // Plaza indices for rabbit sightings (progressively further from center)
 const RABBIT_PLAZA_INDICES = [1, 2, 4, 7, 10]; // plazas[1]=slot3, [2]=slot7, [4]=slot18, [7]=slot42, [10]=slot75
 
+export function getCityCanvasAccessibilityText(focusedBuilding: string | null | undefined): string {
+  return focusedBuilding ? `Viewing ${focusedBuilding}'s building` : "No building selected";
+}
+
+interface CityCanvasSceneContentProps extends CityCanvasProps {
+  theme: CityTheme;
+  cityRadius: number;
+  showPerf: boolean;
+  timeRef: MutableRefObject<number>;
+  landmarkPositions: [number, number, number][];
+  onChronoTowerClick: () => void;
+  onOpenDungeon: () => void;
+  onOpenCodeForge: () => void;
+  flyPosRef: MutableRefObject<THREE.Vector3>;
+  themeIndex: number;
+}
+
+interface CityCanvasOverlayLayerProps {
+  focusedBuilding: string | null | undefined;
+  dungeonOpen: boolean;
+  onCloseDungeon: () => void;
+  codeForgeOpen: boolean;
+  onCloseCodeForge: () => void;
+}
+
+const CityCanvasSceneContent = memo(function CityCanvasSceneContent({
+  buildings,
+  plazas,
+  decorations,
+  river,
+  bridges,
+  canals,
+  flyMode,
+  flyVehicle,
+  onExitFly,
+  onCollect,
+  theme,
+  dayNightCycleActive,
+  onHud,
+  onPause,
+  focusedBuilding,
+  focusedBuildingB,
+  accentColor,
+  onClearFocus,
+  onBuildingClick,
+  onBuildingFocus,
+  onFocusInfo,
+  flyPauseSignal,
+  flyHasOverlay,
+  flyStartPaused,
+  skyAds,
+  onAdClick,
+  onAdViewed,
+  introMode,
+  onIntroEnd,
+  raidPhase,
+  raidData,
+  raidAttacker,
+  raidDefender,
+  onRaidPhaseComplete,
+  onLandmarkClick,
+  onEArcadeClick,
+  onSkyTempleClick,
+  onCodeForgeClick,
+  onSolanaClick,
+  rabbitSighting,
+  onRabbitCaught,
+  rabbitCinematic,
+  onRabbitCinematicEnd,
+  rabbitCinematicTarget,
+  ghostPreviewLogin,
+  holdRise,
+  celebrationActive,
+  wallpaperMode,
+  wallpaperSpeed,
+  liveByLogin,
+  cityEnergy,
+  weatherMode = "sunny",
+  relicFocus,
+  equippedRelicId,
+  initialFlightPos,
+  initialFlightYaw,
+  multiplayerPlayers,
+  isNewBuilding,
+  transitState,
+  onArrival,
+  onOpenTransitMenu,
+  cityRadius,
+  showPerf,
+  timeRef,
+  landmarkPositions,
+  onChronoTowerClick,
+  onOpenDungeon,
+  onOpenCodeForge,
+  flyPosRef,
+  themeIndex,
+}: CityCanvasSceneContentProps) {
+  const { isRaining } = useWeather();
+
+  return (
+    <>
+      {showPerf && <Stats />}
+      <CityExposure cityEnergy={cityEnergy ?? 1} />
+      <AtmosphereCycleManager
+        theme={theme}
+        themeIndex={themeIndex}
+        active={dayNightCycleActive ?? false}
+        timeRef={timeRef}
+        cityRadius={cityRadius}
+        weatherMode={weatherMode}
+      />
+
+      {introMode && <IntroFlyover onEnd={onIntroEnd ?? (() => { })} />}
+
+      {rabbitCinematic && rabbitCinematicTarget != null && (
+        <RabbitFlyover
+          targetPlazaIndex={RABBIT_PLAZA_INDICES[(rabbitCinematicTarget - 1)] ?? 1}
+          plazas={plazas}
+          onEnd={onRabbitCinematicEnd ?? (() => { })}
+        />
+      )}
+
+      {wallpaperMode ? (
+        <WallpaperOrbitScene speed={wallpaperSpeed ?? 0.08} />
+      ) : (
+        <>
+          {!introMode && !rabbitCinematic && !flyMode && !(transitState?.active) && (!raidPhase || raidPhase === "idle" || raidPhase === "preview") && (
+            <OrbitScene
+              buildings={buildings}
+              focusedBuilding={focusedBuilding ?? null}
+              focusedBuildingB={focusedBuildingB}
+              isNewBuilding={isNewBuilding}
+              relicFocus={relicFocus}
+            />
+          )}
+
+          {raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && (
+            <RaidSequence3D
+              phase={raidPhase}
+              attacker={raidAttacker ?? null}
+              defender={raidDefender ?? null}
+              raidData={raidData ?? null}
+              onPhaseComplete={onRaidPhaseComplete ?? (() => { })}
+            />
+          )}
+
+          {!introMode && flyMode && (
+            <>
+              <AirplaneFlight
+                onExit={onExitFly}
+                onHud={onHud ?? (() => { })}
+                onPause={onPause ?? (() => { })}
+                pauseSignal={flyPauseSignal}
+                hasOverlay={flyHasOverlay}
+                startPaused={flyStartPaused}
+                vehicleType={flyVehicle}
+                posRef={flyPosRef}
+                equippedRelicId={equippedRelicId}
+                cityRadius={cityRadius}
+                initialPosition={initialFlightPos ?? undefined}
+                initialYaw={initialFlightYaw ?? undefined}
+              />
+              <SkyCollectibles playerPosRef={flyPosRef} accentColor={accentColor ?? "#6090e0"} onCollect={onCollect ?? (() => { })} cityRadius={cityRadius} />
+            </>
+          )}
+        </>
+      )}
+
+      <Ground key={`ground-${themeIndex}`} color={theme.groundColor} grid1={theme.grid1} grid2={theme.grid2} />
+
+      <FounderSpire onClick={onLandmarkClick ?? (() => { })} />
+      <Suspense fallback={null}>
+        <Colosseum
+          position={landmarkPositions[0]}
+          themeAccent={theme.building.accent}
+          themeWindowLit={theme.building.windowLit}
+          themeFace={theme.building.face}
+        />
+        <VoidObelisk onClick={() => { }} position={landmarkPositions[1]} />
+        <DungeonPortal onClick={onOpenDungeon} position={landmarkPositions[2]} />
+        <AstralObservatory onClick={() => { }} position={landmarkPositions[3]} />
+        <CryptOfEchoes onClick={() => { }} position={landmarkPositions[4]} />
+        <SunkenSanctum onClick={() => { }} position={landmarkPositions[5]} />
+        <CodeForge onClick={onOpenCodeForge} position={landmarkPositions[6]} />
+      </Suspense>
+      <EArcadeLandmark
+        onClick={onEArcadeClick ?? (() => { })}
+        themeAccent={theme.building.accent}
+        themeWindowLit={theme.building.windowLit}
+        themeFace={theme.building.face}
+        position={landmarkPositions[7]}
+      />
+      <DailyQuestionsLandmark
+        onClick={() => { }}
+        themeAccent={theme.building.accent}
+        themeWindowLit={theme.building.windowLit}
+        themeFace={theme.building.face}
+        position={landmarkPositions[14]}
+      />
+
+      <Suspense fallback={null}>
+        <ChronoTower
+          onClick={onChronoTowerClick}
+          position={landmarkPositions[8]}
+        />
+        <SkyTemple onClick={onSkyTempleClick ?? (() => { })} position={landmarkPositions[9]} />
+        <FirecrawlBuilding onClick={() => { }} position={landmarkPositions[10]} />
+        <SolanaBuilding onClick={onSolanaClick ?? (() => { })} position={landmarkPositions[11]} />
+        <CyberStation onClick={() => { }} position={landmarkPositions[12]} />
+        <DeveloperPalace onClick={() => { }} position={landmarkPositions[13]} />
+      </Suspense>
+      <LeaderboardHolograms buildings={buildings} onBuildingClick={onBuildingClick} />
+
+      {!wallpaperMode && celebrationActive && <CelebrationEffect cityRadius={cityRadius} />}
+
+      {!wallpaperMode && rabbitSighting && rabbitSighting >= 1 && rabbitSighting <= 5 && (() => {
+        const plazaIdx = RABBIT_PLAZA_INDICES[rabbitSighting - 1];
+        const plaza = plazas[plazaIdx];
+        if (!plaza) return null;
+        const pos: [number, number, number] = [plaza.position[0], 0.5, plaza.position[2]];
+        return (
+          <WhiteRabbit
+            position={pos}
+            visible={true}
+            onCaught={onRabbitCaught ?? (() => { })}
+          />
+        );
+      })()}
+
+      {river && (
+        <>
+          <River river={river} waterColor={theme.waterColor} waterEmissive={theme.waterEmissive} />
+          <RiverText river={river} />
+          <Waterfront river={river} dockColor={theme.dockColor} />
+        </>
+      )}
+
+      {bridges?.map((b, i) => (
+        <Bridge key={`bridge-${i}`} bridge={b} />
+      ))}
+
+      {canals && canals.length > 0 && (
+        <CityCanals canals={canals} waterColor={theme.waterColor} waterEmissive={theme.waterEmissive} />
+      )}
+
+      {river && bridges && bridges[0] && (() => {
+        const [bx, , bz] = bridges[0].position;
+        return (
+          <>
+            <BridgeGate position={[bx, 0, bz + 80]} />
+            <BridgeGate position={[bx, 0, bz - 80]} />
+          </>
+        );
+      })()}
+
+      <CityScene
+        buildings={buildings}
+        colors={theme.building}
+        focusedBuilding={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidDefender?.login ?? focusedBuilding) : focusedBuilding}
+        focusedBuildingB={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : focusedBuildingB}
+        hideEffectsFor={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : null}
+        accentColor={theme.building.accent}
+        onBuildingClick={onBuildingClick}
+        onFocusInfo={onFocusInfo}
+        introMode={introMode}
+        flyMode={flyMode}
+        ghostPreviewLogin={ghostPreviewLogin}
+        holdRise={holdRise}
+        liveByLogin={liveByLogin}
+        cityEnergy={cityEnergy}
+        timeRef={timeRef}
+        weatherMode={weatherMode}
+        multiplayerPlayers={multiplayerPlayers}
+      />
+
+      <InstancedDecorations items={decorations} roadMarkingColor={theme.roadMarkingColor} sidewalkColor={theme.sidewalkColor} />
+
+      <BusTransit
+        plazas={plazas}
+        bridges={bridges ?? []}
+        transitState={transitState ?? null}
+        onArrival={onArrival ?? (() => { })}
+        onOpenTransitMenu={onOpenTransitMenu ?? (() => { })}
+      />
+
+      <InterCityConnections />
+      <MetroSystem />
+      <TramSystem />
+      {!wallpaperMode && skyAds && skyAds.length > 0 && (
+        <>
+          <SkyAds ads={skyAds} cityRadius={cityRadius} flyMode={flyMode} onAdClick={onAdClick} onAdViewed={onAdViewed} />
+          <BuildingAds
+            ads={skyAds}
+            buildings={buildings}
+            onAdClick={onAdClick}
+            onAdViewed={onAdViewed}
+            focusedBuilding={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidDefender?.login ?? focusedBuilding) : focusedBuilding}
+            focusedBuildingB={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : focusedBuildingB}
+          />
+        </>
+      )}
+      {isRaining && (
+        <>
+          <RainParticles />
+          <RainRippleGround />
+        </>
+      )}
+    </>
+  );
+});
+
+const CityCanvasOverlayLayer = memo(function CityCanvasOverlayLayer({
+  focusedBuilding,
+  dungeonOpen,
+  onCloseDungeon,
+  codeForgeOpen,
+  onCloseCodeForge,
+}: CityCanvasOverlayLayerProps) {
+  return (
+    <>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {getCityCanvasAccessibilityText(focusedBuilding)}
+      </div>
+      {dungeonOpen && <DungeonModal onClose={onCloseDungeon} />}
+      {codeForgeOpen && <CodeForgeModal onClose={onCloseCodeForge} />}
+    </>
+  );
+});
+
 export default function CityCanvas({
   onReady,
   buildings,
@@ -2439,8 +2769,7 @@ export default function CityCanvas({
   transitState,
   onArrival,
   onOpenTransitMenu,
-}: Props) {
-  const { isRaining } = useWeather();
+}: CityCanvasProps) {
   const router = useRouter();
   const [dungeonOpen, setDungeonOpen] = useState(false);
   const [codeForgeOpen, setCodeForgeOpen] = useState(false);
@@ -2453,7 +2782,7 @@ export default function CityCanvas({
   const flyPosRef = useRef(new THREE.Vector3());
   const timeRef = useRef(0.0);
 
-  const handleCanvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleCanvasKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!buildings.length) return;
 
     const isForward = e.key === "ArrowRight" || e.key === "ArrowDown";
@@ -2485,7 +2814,7 @@ export default function CityCanvas({
     } else if (e.key === "Escape") {
       if (onClearFocus) onClearFocus();
     }
-  };
+  }, [buildings, focusedBuilding, kbBuildingIndex, onBuildingFocus, onBuildingClick, onClearFocus]);
 
   const cityRadius = useMemo(() => {
     let max = 200;
@@ -2495,9 +2824,25 @@ export default function CityCanvas({
     }
     return max;
   }, [buildings]);
-  const handleChronoTowerClick = () => {
+  const handleChronoTowerClick = useCallback(() => {
     router.push("/roadmap");
-  };
+  }, [router]);
+  const handleOpenDungeon = useCallback(() => {
+    setDungeonOpen(true);
+  }, []);
+
+  const handleCloseDungeon = useCallback(() => {
+    setDungeonOpen(false);
+  }, []);
+
+  const handleOpenCodeForge = useCallback(() => {
+    setCodeForgeOpen(true);
+  }, []);
+
+  const handleCloseCodeForge = useCallback(() => {
+    setCodeForgeOpen(false);
+  }, []);
+
   const landmarkPositions = useMemo(() => {
     const posList: [number, number, number][] = [];
     const count = 15;
@@ -2522,6 +2867,7 @@ export default function CityCanvas({
       }
       posList.push([x, 0, z]);
     }
+    
     return posList;
   }, [cityRadius]);
 
@@ -2590,230 +2936,87 @@ export default function CityCanvas({
       gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
       style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
     >
-      {showPerf && <Stats />}
-      <CityExposure cityEnergy={cityEnergy ?? 1} />
-      <AtmosphereCycleManager
+      <CityCanvasSceneContent
+        buildings={buildings}
+        plazas={plazas}
+        decorations={decorations}
+        river={river}
+        bridges={bridges}
+        canals={canals}
+        flyMode={flyMode}
+        flyVehicle={flyVehicle}
+        onExitFly={onExitFly}
+        onCollect={onCollect}
         theme={t}
-        themeIndex={themeIndex}
-        active={dayNightCycleActive ?? false}
-        timeRef={timeRef}
-        cityRadius={cityRadius}
+        dayNightCycleActive={dayNightCycleActive}
+        onHud={onHud}
+        onPause={onPause}
+        focusedBuilding={focusedBuilding}
+        focusedBuildingB={focusedBuildingB}
+        accentColor={accentColor}
+        onClearFocus={onClearFocus}
+        onBuildingClick={onBuildingClick}
+        onBuildingFocus={onBuildingFocus}
+        onFocusInfo={onFocusInfo}
+        flyPauseSignal={flyPauseSignal}
+        flyHasOverlay={flyHasOverlay}
+        flyStartPaused={flyStartPaused}
+        skyAds={skyAds}
+        onAdClick={onAdClick}
+        onAdViewed={onAdViewed}
+        introMode={introMode}
+        onIntroEnd={onIntroEnd}
+        raidPhase={raidPhase}
+        raidData={raidData}
+        raidAttacker={raidAttacker}
+        raidDefender={raidDefender}
+        onRaidPhaseComplete={onRaidPhaseComplete}
+        onLandmarkClick={onLandmarkClick}
+        onEArcadeClick={onEArcadeClick}
+        onSkyTempleClick={onSkyTempleClick}
+        onCodeForgeClick={onCodeForgeClick}
+        onSolanaClick={onSolanaClick}
+        rabbitSighting={rabbitSighting}
+        onRabbitCaught={onRabbitCaught}
+        rabbitCinematic={rabbitCinematic}
+        onRabbitCinematicEnd={onRabbitCinematicEnd}
+        rabbitCinematicTarget={rabbitCinematicTarget}
+        ghostPreviewLogin={ghostPreviewLogin}
+        holdRise={holdRise}
+        celebrationActive={celebrationActive}
+        wallpaperMode={wallpaperMode}
+        wallpaperSpeed={wallpaperSpeed}
+        liveByLogin={liveByLogin}
+        cityEnergy={cityEnergy}
         weatherMode={weatherMode}
+        relicFocus={relicFocus}
+        equippedRelicId={equippedRelicId}
+        initialFlightPos={initialFlightPos}
+        initialFlightYaw={initialFlightYaw}
+        multiplayerPlayers={multiplayerPlayers}
+        isNewBuilding={isNewBuilding}
+        transitState={transitState}
+        onArrival={onArrival}
+        onOpenTransitMenu={onOpenTransitMenu}
+        cityRadius={cityRadius}
+        showPerf={showPerf}
+        timeRef={timeRef}
+        landmarkPositions={landmarkPositions}
+        onChronoTowerClick={handleChronoTowerClick}
+        onOpenDungeon={handleOpenDungeon}
+        onOpenCodeForge={handleOpenCodeForge}
+        flyPosRef={flyPosRef}
+        themeIndex={themeIndex}
       />
 
-      {introMode && <IntroFlyover onEnd={onIntroEnd ?? (() => { })} />}
-
-      {rabbitCinematic && rabbitCinematicTarget != null && (
-        <RabbitFlyover
-          targetPlazaIndex={RABBIT_PLAZA_INDICES[(rabbitCinematicTarget - 1)] ?? 1}
-          plazas={plazas}
-          onEnd={onRabbitCinematicEnd ?? (() => { })}
-        />
-      )}
-
-      {wallpaperMode ? (
-        <WallpaperOrbitScene speed={wallpaperSpeed ?? 0.08} />
-      ) : (
-        <>
-          {!introMode && !rabbitCinematic && !flyMode && !(transitState?.active) && (!raidPhase || raidPhase === "idle" || raidPhase === "preview") && (
-            <OrbitScene
-              buildings={buildings}
-              focusedBuilding={focusedBuilding ?? null}
-              focusedBuildingB={focusedBuildingB}
-              isNewBuilding={isNewBuilding}
-              relicFocus={relicFocus}
-            />
-          )}
-
-          {raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && (
-            <RaidSequence3D
-              phase={raidPhase}
-              attacker={raidAttacker ?? null}
-              defender={raidDefender ?? null}
-              raidData={raidData ?? null}
-              onPhaseComplete={onRaidPhaseComplete ?? (() => { })}
-            />
-          )}
-
-          {!introMode && flyMode && (
-            <>
-              <AirplaneFlight
-                onExit={onExitFly}
-                onHud={onHud ?? (() => { })}
-                onPause={onPause ?? (() => { })}
-                pauseSignal={flyPauseSignal}
-                hasOverlay={flyHasOverlay}
-                startPaused={flyStartPaused}
-                vehicleType={flyVehicle}
-                posRef={flyPosRef}
-                equippedRelicId={equippedRelicId}
-                cityRadius={cityRadius}
-                initialPosition={initialFlightPos ?? undefined}
-                initialYaw={initialFlightYaw ?? undefined}
-              />
-              <SkyCollectibles playerPosRef={flyPosRef} accentColor={accentColor ?? "#6090e0"} onCollect={onCollect ?? (() => { })} cityRadius={cityRadius} />
-            </>
-          )}
-        </>
-      )}
-
-      <Ground key={`ground-${themeIndex}`} color={t.groundColor} grid1={t.grid1} grid2={t.grid2} />
-
-      <FounderSpire onClick={onLandmarkClick ?? (() => { })} />
-      <Suspense fallback={null}>
-            <Colosseum
-              position={landmarkPositions[0]}
-              themeAccent={t.building.accent}
-              themeWindowLit={t.building.windowLit}
-              themeFace={t.building.face}
-            />
-            <VoidObelisk onClick={() => { }} position={landmarkPositions[1]} />
-            <DungeonPortal onClick={() => setDungeonOpen(true)} position={landmarkPositions[2]} />
-            <AstralObservatory onClick={() => { }} position={landmarkPositions[3]} />
-            <CryptOfEchoes onClick={() => { }} position={landmarkPositions[4]} />
-            <SunkenSanctum onClick={() => { }} position={landmarkPositions[5]} />
-            <CodeForge onClick={() => setCodeForgeOpen(true)} position={landmarkPositions[6]} />
-          </Suspense>
-          <EArcadeLandmark
-            onClick={onEArcadeClick ?? (() => { })}
-            themeAccent={t.building.accent}
-            themeWindowLit={t.building.windowLit}
-            themeFace={t.building.face}
-            position={landmarkPositions[7]}
-          />
-          <DailyQuestionsLandmark
-             onClick={() => {}}
-             themeAccent={t.building.accent}
-             themeWindowLit={t.building.windowLit}
-             themeFace={t.building.face}
-             position={landmarkPositions[14]}
-          />
-          
-          <Suspense fallback={null}>
-            <ChronoTower
-              onClick={handleChronoTowerClick}
-              position={landmarkPositions[8]}
-            />
-            <SkyTemple onClick={onSkyTempleClick ?? (() => { })} position={landmarkPositions[9]} />
-            <FirecrawlBuilding onClick={() => { }} position={landmarkPositions[10]} />
-            <SolanaBuilding onClick={onSolanaClick ?? (() => {})} position={landmarkPositions[11]} />
-            <CyberStation onClick={() => { }} position={landmarkPositions[12]} />
-            <DeveloperPalace onClick={() => { }} position={landmarkPositions[13]} />
-          </Suspense>
-          <LeaderboardHolograms buildings={buildings} onBuildingClick={onBuildingClick} />
-
-          {!wallpaperMode && celebrationActive && <CelebrationEffect cityRadius={cityRadius} />}
-
-          {!wallpaperMode && rabbitSighting && rabbitSighting >= 1 && rabbitSighting <= 5 && (() => {
-            const plazaIdx = RABBIT_PLAZA_INDICES[rabbitSighting - 1];
-            const plaza = plazas[plazaIdx];
-            if (!plaza) return null;
-            const pos: [number, number, number] = [plaza.position[0], 0.5, plaza.position[2]];
-            return (
-              <WhiteRabbit
-                position={pos}
-                visible={true}
-                onCaught={onRabbitCaught ?? (() => { })}
-              />
-            );
-          })()}
-
-          {river && (
-            <>
-              <River river={river} waterColor={t.waterColor} waterEmissive={t.waterEmissive} />
-              <RiverText river={river} />
-              <Waterfront river={river} dockColor={t.dockColor} />
-            </>
-          )}
-
-          {bridges?.map((b, i) => (
-            <Bridge key={`bridge-${i}`} bridge={b} />
-          ))}
-
-          {canals && canals.length > 0 && (
-            <CityCanals canals={canals} waterColor={t.waterColor} waterEmissive={t.waterEmissive} />
-          )}
-
-          {/* Render Bridge Gates at the main central bridge entrances to split the layout */}
-          {river && bridges && bridges[0] && (() => {
-            const [bx, , bz] = bridges[0].position;
-            return (
-              <>
-                <BridgeGate position={[bx, 0, bz + 80]} />
-                <BridgeGate position={[bx, 0, bz - 80]} />
-              </>
-            );
-          })()}
-
-          <CityScene
-            buildings={buildings}
-            colors={t.building}
-            focusedBuilding={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidDefender?.login ?? focusedBuilding) : focusedBuilding}
-            focusedBuildingB={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : focusedBuildingB}
-            hideEffectsFor={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : null}
-            accentColor={t.building.accent}
-            onBuildingClick={onBuildingClick}
-            onFocusInfo={onFocusInfo}
-            introMode={introMode}
-            flyMode={flyMode}
-            ghostPreviewLogin={ghostPreviewLogin}
-            holdRise={holdRise}
-            liveByLogin={liveByLogin}
-            cityEnergy={cityEnergy}
-            timeRef={timeRef}
-            weatherMode={weatherMode}
-            multiplayerPlayers={multiplayerPlayers}
-          />
-
-          <InstancedDecorations items={decorations} roadMarkingColor={t.roadMarkingColor} sidewalkColor={t.sidewalkColor} />
-
-          <BusTransit
-            plazas={plazas}
-            bridges={bridges ?? []}
-            transitState={transitState ?? null}
-            onArrival={onArrival ?? (() => {})}
-            onOpenTransitMenu={onOpenTransitMenu ?? (() => {})}
-          />
-
-          <InterCityConnections />
-          <MetroSystem />
-          <TramSystem />
-          {!wallpaperMode && skyAds && skyAds.length > 0 && (
-            <>
-              <SkyAds ads={skyAds} cityRadius={cityRadius} flyMode={flyMode} onAdClick={onAdClick} onAdViewed={onAdViewed} />
-              <BuildingAds
-                ads={skyAds}
-                buildings={buildings}
-                onAdClick={onAdClick}
-                onAdViewed={onAdViewed}
-                focusedBuilding={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidDefender?.login ?? focusedBuilding) : focusedBuilding}
-                focusedBuildingB={raidPhase && raidPhase !== "idle" && raidPhase !== "preview" && raidPhase !== "share" && raidPhase !== "done" ? (raidAttacker?.login ?? null) : focusedBuildingB}
-              />
-            </>
-          )}
-      {isRaining && (
-        <>
-          <RainParticles />
-          <RainRippleGround />
-        </>
-      )}
-
     </Canvas>
-    <div
-      aria-live="polite"
-      aria-atomic="true"
-      className="sr-only"
-    >
-      {focusedBuilding
-        ? `Viewing ${focusedBuilding}'s building`
-        : "No building selected"}
-    </div>
-    {dungeonOpen && (
-      <DungeonModal onClose={() => setDungeonOpen(false)} />
-    )}
-    {codeForgeOpen && (
-      <CodeForgeModal onClose={() => setCodeForgeOpen(false)} />
-    )}
+    <CityCanvasOverlayLayer
+      focusedBuilding={focusedBuilding}
+      dungeonOpen={dungeonOpen}
+      onCloseDungeon={handleCloseDungeon}
+      codeForgeOpen={codeForgeOpen}
+      onCloseCodeForge={handleCloseCodeForge}
+    />
   </>
   );
 }
