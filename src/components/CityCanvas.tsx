@@ -2867,6 +2867,7 @@ export default function CityCanvas({
       }
       posList.push([x, 0, z]);
     }
+    
     return posList;
   }, [cityRadius]);
 
