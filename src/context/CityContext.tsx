@@ -176,6 +176,7 @@ interface CityContextProps {
   setQuotaNotified: React.Dispatch<React.SetStateAction<boolean>>;
   quotaDismissed: boolean;
   setQuotaDismissed: React.Dispatch<React.SetStateAction<boolean>>;
+  activeFlyQuota: number;
   stats: CityStats;
   githubStars: number;
   discordMembers: number | null;
@@ -668,6 +669,26 @@ export function CityProvider({ children }: { children: ReactNode }) {
       (mission) => mission.id === "fly_score_50" && mission.completed,
     );
   }, [dailiesData?.missions]);
+
+  const activeFlyQuota = useMemo(() => {
+    if (!dailiesData?.missions) return 0;
+    const has150 = dailiesData.missions.some(
+      (m: any) => m.id === "fly_score_150" && !m.completed
+    );
+    if (has150) return 150;
+    const has50 = dailiesData.missions.some(
+      (m: any) => m.id === "fly_score_50" && !m.completed
+    );
+    if (has50) return 50;
+    return 0;
+  }, [dailiesData?.missions]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).setFlyScore = setFlyScore;
+      (window as any).setFlyMode = setFlyMode;
+    }
+  }, [setFlyScore, setFlyMode]);
 
   // Live Users & presence
   const { count: liveUsers, status: liveStatus } = useLiveUsers();
@@ -1513,10 +1534,10 @@ export function CityProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (
       flyMode &&
+      activeFlyQuota > 0 &&
       !quotaNotified &&
       !quotaDismissed &&
-      !quotaMissionCompleted &&
-      flyScore.score >= 50
+      flyScore.score >= activeFlyQuota
     ) {
       setQuotaReached(true);
       setQuotaNotified(true);
@@ -1526,7 +1547,7 @@ export function CityProvider({ children }: { children: ReactNode }) {
       setQuotaNotified(false);
       setQuotaDismissed(false);
     }
-  }, [flyMode, flyScore.score, quotaDismissed, quotaMissionCompleted, quotaNotified]);
+  }, [flyMode, flyScore.score, quotaDismissed, quotaNotified, activeFlyQuota]);
 
   // Level-up toasts
   useEffect(() => {
@@ -1994,6 +2015,7 @@ export function CityProvider({ children }: { children: ReactNode }) {
         setQuotaNotified,
         quotaDismissed,
         setQuotaDismissed,
+        activeFlyQuota,
         stats,
         githubStars,
         discordMembers,

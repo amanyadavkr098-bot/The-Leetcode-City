@@ -54,7 +54,7 @@ export function getSafeSupabaseClient(url?: string, key?: string): SupabaseClien
   const targetKey = key || process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 
   if (!isValidUrl(targetUrl) || !targetKey) {
-    console.warn(`[Supabase] Returning dummy client due to missing or invalid URL/Key. URL: "${targetUrl}"`);
+    console.warn(`[supabase.ts] Returning dummy client due to missing or invalid URL/Key. URL: "${targetUrl}"`);
     return createDummyClient() as unknown as SupabaseClient;
   }
 
@@ -77,7 +77,7 @@ export function createBrowserSupabase() {
   const key = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 
   if (!isValidUrl(url) || !key) {
-    console.warn(`[Supabase] Returning dummy client for browser client due to missing or invalid URL/Key. URL: "${url}"`);
+    console.warn(`[supabase.ts] Returning dummy client for browser client due to missing or invalid URL/Key. URL: "${url}"`);
     return createDummyClient() as unknown as ReturnType<typeof createBrowserClient>;
   }
 
@@ -97,7 +97,7 @@ export function getSupabaseAdmin(): SupabaseClient {
   const url = process.env['NEXT_PUBLIC_SUPABASE_URL'];
 
   if (!isValidUrl(url) || !key) {
-    console.warn(`[Supabase] Returning dummy admin client due to missing or invalid URL/Key. URL: "${url}"`);
+    console.warn(`[supabase.ts] Returning dummy admin client due to missing or invalid URL/Key. URL: "${url}"`);
     return createDummyClient() as unknown as SupabaseClient;
   }
 
@@ -109,7 +109,7 @@ export function getSupabaseAdmin(): SupabaseClient {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !adminClientWarned) {
     adminClientWarned = true;
     console.warn(
-      "[dev mode] SUPABASE_SERVICE_ROLE_KEY not set — using anon key. " +
+      "[supabase.ts] dev mode: SUPABASE_SERVICE_ROLE_KEY not set — using anon key. " +
       "Reads work, writes are blocked by RLS. This is fine for frontend development."
     );
   }
@@ -156,7 +156,7 @@ export async function broadcastToChannel(
     });
   } catch (err) {
     // Fire and forget: broadcast failure should never block the API response.
-    console.warn("[lib/supabase.ts] failed to broadcast realtime message:", err);
+    console.warn("[supabase.ts] failed to broadcast realtime message:", err);
   }
 }
 

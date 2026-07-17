@@ -14,6 +14,18 @@ export async function GET(req: NextRequest) {
 
   const sb = getSupabaseAdmin();
 
+  // Best-effort cleanup of stale active players (> 60 seconds since last heartbeat)
+  const pruneCutoff = new Date(Date.now() - 60 * 1000).toISOString();
+  void sb
+    .from("arcade_active_players")
+    .delete()
+    .lt("last_heartbeat", pruneCutoff)
+    .then(({ error }) => {
+      if (error) {
+        console.warn("[rooms] Failed to prune stale active players:", error.message);
+      }
+    });
+
   let query = sb
     .from("arcade_rooms")
     .select("id, slug, name, room_type, floor_number, max_players, visibility, category, description, is_featured, portals, created_at", { count: "exact" })
