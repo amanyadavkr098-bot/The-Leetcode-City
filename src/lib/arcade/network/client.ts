@@ -249,8 +249,8 @@ export function connect(
           // Register unload handlers for immediate cleanup
           unloadHandler = () => {
             if (localUserId && localToken) {
-              const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-              const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+              const sbUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'];
+              const sbKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
               if (sbUrl && sbKey) {
                 const url = `${sbUrl}/rest/v1/arcade_active_players?user_id=eq.${localUserId}`;
                 fetch(url, {
