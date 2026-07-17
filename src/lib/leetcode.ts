@@ -25,7 +25,7 @@ export async function fetchLeetCodeAboutMe(username: string): Promise<string | n
         const data = await res.json();
         return data?.data?.matchedUser?.profile?.aboutMe ?? null;
     } catch (err) {
-        console.error("[lib/leetcode.ts] failed to fetch LeetCode aboutMe:", err);
+        console.error("[leetcode.ts] failed to fetch LeetCode aboutMe:", err);
         return null;
     }
 }
@@ -47,7 +47,7 @@ export function parseMaxStreak(
                 const parsed = JSON.parse(cal);
                 allTimestamps.push(...Object.keys(parsed).map(Number));
             } catch (err) {
-                console.warn("[lib/leetcode.ts] skipped invalid submission calendar:", err);
+                console.warn("[leetcode.ts] skipped invalid submission calendar:", err);
             }
         }
     }
@@ -135,7 +135,7 @@ export async function fetchLeetCodeWeeklySubmissions(username: string): Promise<
 
         return totalWeeklyCount;
     } catch (err) {
-        console.error("[lib/leetcode.ts] failed to fetch weekly submissions:", err);
+        console.error("[leetcode.ts] failed to fetch weekly submissions:", err);
         // Signal failure (not a real zero) so the caller keeps the prior count.
         return null;
     }

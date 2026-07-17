@@ -132,7 +132,7 @@ function savePendingBillboard(file: File): void {
         JSON.stringify({ data: reader.result, type: file.type, name: file.name })
       );
     } catch (err) {
-      console.warn("[components/ShopClient.tsx] failed to save pending billboard:", err);
+      console.warn("[ShopClient.tsx] failed to save pending billboard:", err);
     }
   };
   reader.readAsDataURL(file);
@@ -144,7 +144,7 @@ function getPendingBillboard(): { data: string; type: string; name: string } | n
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (err) {
-    console.warn("[components/ShopClient.tsx] failed to read pending billboard:", err);
+    console.warn("[ShopClient.tsx] failed to read pending billboard:", err);
     return null;
   }
 }
@@ -153,7 +153,7 @@ function clearPendingBillboard(): void {
   try {
     localStorage.removeItem(PENDING_BILLBOARD_KEY);
   } catch (err) {
-    console.warn("[components/ShopClient.tsx] failed to clear pending billboard:", err);
+    console.warn("[ShopClient.tsx] failed to clear pending billboard:", err);
   }
 }
 
@@ -224,7 +224,7 @@ function PixModal({
           setStatus("completed");
         }
       } catch (err) {
-        console.warn("[components/ShopClient.tsx] failed to poll PIX payment status:", err);
+        console.warn("[ShopClient.tsx] failed to poll PIX payment status:", err);
       }
     }, 3000);
 
@@ -247,7 +247,7 @@ function PixModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.warn("[components/ShopClient.tsx] failed to copy PIX code:", err);
+      console.warn("[ShopClient.tsx] failed to copy PIX code:", err);
     }
   }, [data.brCode]);
 
@@ -516,7 +516,7 @@ function BillboardUploadPanel({
         setTimeout(() => setSavedSlot(null), 2000);
       }
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to upload billboard image:", err);
+      console.error("[ShopClient.tsx] failed to upload billboard image:", err);
       // ignore
     } finally {
       setUploadingSlot(null);
@@ -733,7 +733,7 @@ export default function ShopClient({
           setLoadingRelics(false);
         })
         .catch((err) => {
-          console.error("[components/ShopClient.tsx] failed to load relics:", err);
+          console.error("[ShopClient.tsx] failed to load relics:", err);
           setRelics(STATIC_RELICS);
           if (!selectedRelic) setSelectedRelic(STATIC_RELICS[0]);
           setLoadingRelics(false);
@@ -754,7 +754,7 @@ export default function ShopClient({
         window.dispatchEvent(new CustomEvent("leetcodecity:relic-saved"));
       }
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to equip relic:", err);
+      console.error("[ShopClient.tsx] failed to equip relic:", err);
     } finally {
       setEquippingRelic(null);
     }
@@ -914,7 +914,7 @@ export default function ShopClient({
         localStorage.removeItem("leetcodecity:billboard_override");
       }
     } catch (err) {
-      console.warn("[components/ShopClient.tsx] failed to save billboard override:", err);
+      console.warn("[ShopClient.tsx] failed to save billboard override:", err);
     }
   }, [billboardImages, developerId]);
 
@@ -976,7 +976,7 @@ export default function ShopClient({
             JSON.stringify({ developerId, value: newStyle, ts: Date.now() })
           )
         } catch (e) {
-            console.warn("[components/ShopClient.tsx] failed to cache loadout in localStorage:", e);
+            console.warn("[ShopClient.tsx] failed to cache loadout in localStorage:", e);
         }
       }
     } catch (e: any) {
@@ -1024,14 +1024,14 @@ export default function ShopClient({
             JSON.stringify({ developerId, loadout: payload, ts: Date.now() }),
           );
         } catch (err) {
-          console.warn("[components/ShopClient.tsx] failed to cache loadout in localStorage:", err);
+          console.warn("[ShopClient.tsx] failed to cache loadout in localStorage:", err);
         }
         window.dispatchEvent(new CustomEvent("leetcodecity:loadout-saved"));
       } else {
         setError("Failed to save. Try again.");
       }
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to save loadout:", err);
+      console.error("[ShopClient.tsx] failed to save loadout:", err);
       setError("Failed to save. Try again.");
     } finally {
       setSaving(false);
@@ -1076,7 +1076,7 @@ export default function ShopClient({
             }
           }
         } catch (err) {
-            console.warn("[components/ShopClient.tsx] failed to cache raid loadout in localStorage:", err);
+            console.warn("[ShopClient.tsx] failed to cache raid loadout in localStorage:", err);
         }
       }
     } catch (err: any) {
@@ -1111,7 +1111,7 @@ export default function ShopClient({
         prev.includes(FREE_CLAIM_ITEM) ? prev : [...prev, FREE_CLAIM_ITEM]
       );
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to claim free item:", err);
+      console.error("[ShopClient.tsx] failed to claim free item:", err);
       setError("Network error. Try again.");
     } finally {
       setBuyingItem(null);
@@ -1147,7 +1147,7 @@ export default function ShopClient({
         setStarVerifyStep("opened");
       }
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to verify repository star:", err);
+      console.error("[ShopClient.tsx] failed to verify repository star:", err);
       setError("Network error. Try again.");
       setStarVerifyStep("opened");
     } finally {
@@ -1241,7 +1241,7 @@ export default function ShopClient({
               setError(result.error.message || "Payment failed");
             }
           } catch (sdkErr) {
-            console.error("[components/ShopClient.tsx] failed to initialize Cashfree SDK:", sdkErr);
+            console.error("[ShopClient.tsx] failed to initialize Cashfree SDK:", sdkErr);
             setError("Payment gateway failed to load. Try again.");
           }
         } else if (data.brCode) {
@@ -1258,7 +1258,7 @@ export default function ShopClient({
           window.location.href = data.url;
         }
       } catch (err) {
-        console.error("[components/ShopClient.tsx] failed to start Cashfree checkout:", err);
+        console.error("[ShopClient.tsx] failed to start Cashfree checkout:", err);
         setError("Network error. Try again.");
       } finally {
         setBuyingItem(null);
@@ -1314,7 +1314,7 @@ export default function ShopClient({
           setError(data.error || "Failed to buy item.");
         }
       } catch (err) {
-        console.error("[components/ShopClient.tsx] failed to start PIX checkout:", err);
+        console.error("[ShopClient.tsx] failed to start PIX checkout:", err);
         setError("Network error. Try again.");
       } finally {
         setBuyingItem(null);
@@ -1384,7 +1384,7 @@ export default function ShopClient({
         setTimeout(() => setRedeemState("idle"), 4000);
       }
     } catch (err) {
-      console.error("[components/ShopClient.tsx] failed to redeem code:", err);
+      console.error("[ShopClient.tsx] failed to redeem code:", err);
       setRedeemState("error");
       setRedeemMsg("Network error. Please try again.");
       setTimeout(() => setRedeemState("idle"), 4000);
