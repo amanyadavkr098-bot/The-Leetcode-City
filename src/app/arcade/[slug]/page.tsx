@@ -505,6 +505,7 @@ export default function ArcadeRoomPage({
 
         const isLocal = id === localIdRef.current;
         const now = Date.now();
+        const prevLerpDuration = p.lerpDuration ?? LERP_DURATION;
         if (!isLocal) {
           const delta = (now - p.lastUpdate) / 1000;
           p.lastUpdate = now;
@@ -563,8 +564,7 @@ export default function ArcadeRoomPage({
               snapCamera(px * ts + ts / 2, py * ts + ts / 2, mapRef.current);
             }
           } else {
-            const currentLerpDuration = p.lerpDuration ?? LERP_DURATION;
-            const t = Math.min(p.lerpTimer / currentLerpDuration, 1);
+            const t = Math.min(p.lerpTimer / prevLerpDuration, 1);
             p.prevX = p.prevX + (p.x - p.prevX) * t;
             p.prevY = p.prevY + (p.y - p.prevY) * t;
           }
@@ -596,8 +596,7 @@ export default function ArcadeRoomPage({
             snapCamera(x * ts + ts / 2, y * ts + ts / 2, mapRef.current);
           }
         } else {
-          const currentLerpDuration = p.lerpDuration ?? LERP_DURATION;
-          const t = Math.min(p.lerpTimer / currentLerpDuration, 1);
+          const t = Math.min(p.lerpTimer / prevLerpDuration, 1);
           p.prevX = p.prevX + (p.x - p.prevX) * t;
           p.prevY = p.prevY + (p.y - p.prevY) * t;
         }
