@@ -82,6 +82,7 @@ describe("POST /api/customizations/upload", () => {
           single: vi.fn().mockResolvedValue({ data: null }),
         };
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return {} as any;
     });
 
@@ -108,11 +109,13 @@ describe("POST /api/customizations/upload", () => {
         };
       }
       if (table === "purchases") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chain: any = {
           select: vi.fn(() => chain),
           eq: vi.fn(() => chain),
         };
         // resolve to mockPurchaseCount on await or then
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         chain.then = (onfulfilled: any) => Promise.resolve(onfulfilled(mockPurchaseCount));
         return chain;
       }
@@ -124,6 +127,7 @@ describe("POST /api/customizations/upload", () => {
           upsert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return {} as any;
     });
 
